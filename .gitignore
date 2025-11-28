@@ -1,0 +1,14 @@
+# Compiled executables and documentation
+/target/
+/doc/
+
+# Cargo generated files
+/Cargo.lock.orig
+/.cargo-audit.toml
+
+# Editor files (Emacs, Vim)
+*~
+\#*
+*.bak
+*.swp
+*.swo
