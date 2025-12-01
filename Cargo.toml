@@ -3,5 +3,8 @@ name = "rom-analyzer"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+
 [dependencies]
 zip = "0.6"
+clap = { version = "4.0", features = ["derive"] }
