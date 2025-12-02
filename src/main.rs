@@ -16,7 +16,11 @@ struct Cli {
     file_paths: Vec<String>,
 }
 
-fn process_single_file(file_path: &str, path: &Path, file_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn process_single_file(
+    file_path: &str,
+    path: &Path,
+    file_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     if file_path.to_lowercase().ends_with(".zip") {
         let file = File::open(path)?;
         process_zip_file(file, file_name, &process_rom_data)
@@ -35,11 +39,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("ROM Analyzer CLI");
     print_separator();
 
+    let mut had_error = false;
+
     for file_path in &cli.file_paths {
         let path = Path::new(file_path);
 
         if !path.exists() {
             eprintln!("File not found: {}", file_path);
+            had_error = true;
             continue;
         }
 
@@ -47,13 +54,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             name
         } else {
             eprintln!("Could not get a valid UTF-8 filename for: {}", file_path);
+            had_error = true;
             continue;
         };
 
         let result = process_single_file(file_path, path, file_name);
         if let Err(e) = result {
             eprintln!("Error processing file {}: {}", file_path, e);
+            had_error = true;
         }
+    }
+
+    if had_error {
+        std::process::exit(1);
     }
 
     Ok(())
