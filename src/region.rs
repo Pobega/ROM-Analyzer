@@ -80,3 +80,88 @@ macro_rules! check_region_mismatch {
         }
     };
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_infer_region_from_filename_japan() {
+        assert_eq!(infer_region_from_filename("game (J).zip"), Some("JAPAN"));
+        assert_eq!(infer_region_from_filename("game [J].zip"), Some("JAPAN"));
+        assert_eq!(
+            infer_region_from_filename("game (Japan).zip"),
+            Some("JAPAN")
+        );
+        assert_eq!(
+            infer_region_from_filename("game (NTSC-J).zip"),
+            Some("JAPAN")
+        );
+    }
+
+    #[test]
+    fn test_infer_region_from_filename_usa() {
+        assert_eq!(infer_region_from_filename("game (U).zip"), Some("USA"));
+        assert_eq!(infer_region_from_filename("game [U].zip"), Some("USA"));
+        assert_eq!(infer_region_from_filename("game (USA).zip"), Some("USA"));
+        assert_eq!(infer_region_from_filename("game (NTSC-U).zip"), Some("USA"));
+        assert_eq!(
+            infer_region_from_filename("game (NTSC-US).zip"),
+            Some("USA")
+        );
+    }
+
+    #[test]
+    fn test_infer_region_from_filename_europe() {
+        assert_eq!(infer_region_from_filename("game (E).zip"), Some("EUROPE"));
+        assert_eq!(infer_region_from_filename("game [E].zip"), Some("EUROPE"));
+        assert_eq!(
+            infer_region_from_filename("game (Europe).zip"),
+            Some("EUROPE")
+        );
+        assert_eq!(infer_region_from_filename("game (PAL).zip"), Some("EUROPE"));
+        assert_eq!(
+            infer_region_from_filename("game (NTSC-E).zip"),
+            Some("EUROPE")
+        );
+    }
+
+    #[test]
+    fn test_infer_region_from_filename_none() {
+        assert_eq!(infer_region_from_filename("game (unmarked).zip"), None);
+        assert_eq!(infer_region_from_filename("another game.zip"), None);
+    }
+
+    #[test]
+    fn test_normalize_header_region_japan() {
+        assert_eq!(normalize_header_region("JAPAN"), Some("JAPAN"));
+        assert_eq!(normalize_header_region("NTSC-J"), Some("JAPAN"));
+        assert_eq!(normalize_header_region("SLPS-00001"), Some("JAPAN"));
+        assert_eq!(normalize_header_region("  japan  "), Some("JAPAN"));
+    }
+
+    #[test]
+    fn test_normalize_header_region_usa() {
+        assert_eq!(normalize_header_region("USA"), Some("USA"));
+        assert_eq!(normalize_header_region("AMERICA"), Some("USA"));
+        assert_eq!(normalize_header_region("NTSC-U"), Some("USA"));
+        assert_eq!(normalize_header_region("SLUS-00001"), Some("USA"));
+        assert_eq!(normalize_header_region("CANADA"), Some("USA"));
+        assert_eq!(normalize_header_region("  usa  "), Some("USA"));
+    }
+
+    #[test]
+    fn test_normalize_header_region_europe() {
+        assert_eq!(normalize_header_region("EUROPE"), Some("EUROPE"));
+        assert_eq!(normalize_header_region("PAL"), Some("EUROPE"));
+        assert_eq!(normalize_header_region("SLES-00001"), Some("EUROPE"));
+        assert_eq!(normalize_header_region("OCEANIA"), Some("EUROPE"));
+        assert_eq!(normalize_header_region("  europe  "), Some("EUROPE"));
+    }
+
+    #[test]
+    fn test_normalize_header_region_none() {
+        assert_eq!(normalize_header_region("UNKNOWN"), None);
+        assert_eq!(normalize_header_region("  random text  "), None);
+    }
+}
