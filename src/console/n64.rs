@@ -34,3 +34,41 @@ pub fn analyze_n64_data(data: &[u8], source_name: &str) -> Result<(), Box<dyn Er
     print_separator();
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error;
+
+    #[test]
+    fn test_analyze_n64_data_usa() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x40];
+        data[0x3E..0x40].copy_from_slice(b"E\0"); // USA region
+        analyze_n64_data(&data, "test_rom_us.n64")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_n64_data_japan() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x40];
+        data[0x3E..0x40].copy_from_slice(b"J\0"); // Japan region
+        analyze_n64_data(&data, "test_rom_jp.n64")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_n64_data_europe() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x40];
+        data[0x3E..0x40].copy_from_slice(b"P\0"); // Europe region
+        analyze_n64_data(&data, "test_rom_eur.n64")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_n64_data_unknown() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x40];
+        data[0x3E..0x40].copy_from_slice(b"X\0"); // Unknown region
+        analyze_n64_data(&data, "test_rom.n64")?;
+        Ok(())
+    }
+}

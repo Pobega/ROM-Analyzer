@@ -111,3 +111,72 @@ pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<(), Box<dyn E
     print_separator();
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error;
+
+    // Helper to create a dummy SNES ROM with a valid checksum
+    fn create_snes_rom_data(
+        size: usize,
+        header_offset: usize,
+        region_code: u8,
+        is_hirom: bool,
+    ) -> Vec<u8> {
+        let mut data = vec![0; size];
+        let header_start = if is_hirom { 0xFFC0 } else { 0x7FC0 } + header_offset;
+
+        if header_start + 0x20 > size {
+            panic!("Provided size is too small for SNES header at the given offset.");
+        }
+
+        // Set a valid checksum and its complement
+        let checksum: u16 = 0xAAAA;
+        let complement: u16 = 0x5555;
+        data[header_start + 0x1C..header_start + 0x1E].copy_from_slice(&complement.to_le_bytes());
+        data[header_start + 0x1E..header_start + 0x20].copy_from_slice(&checksum.to_le_bytes());
+
+        // Set game title
+        data[header_start..header_start + 21].copy_from_slice(b"TEST GAME TITLE      ");
+        // Set region code
+        data[header_start + 0x19] = region_code;
+
+        data
+    }
+
+    #[test]
+    fn test_analyze_snes_data_lorom_japan() -> Result<(), Box<dyn Error>> {
+        let data = create_snes_rom_data(0x80000, 0, 0x00, false); // 512KB, LoROM, Japan
+        analyze_snes_data(&data, "test_lorom_jp.sfc")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_snes_data_hirom_usa() -> Result<(), Box<dyn Error>> {
+        let data = create_snes_rom_data(0x100000, 0, 0x01, true); // 1MB, HiROM, USA
+        analyze_snes_data(&data, "test_hirom_us.sfc")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_snes_data_lorom_europe_copier_header() -> Result<(), Box<dyn Error>> {
+        let data = create_snes_rom_data(0x80000 + 512, 512, 0x02, false); // LoROM, Europe, with 512-byte copier header
+        analyze_snes_data(&data, "test_lorom_eur_copier.sfc")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_snes_data_hirom_canada_copier_header() -> Result<(), Box<dyn Error>> {
+        let data = create_snes_rom_data(0x100000 + 512, 512, 0x0F, true); // HiROM, Canada, with 512-byte copier header
+        analyze_snes_data(&data, "test_hirom_can_copier.sfc")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_snes_data_unknown_region() -> Result<(), Box<dyn Error>> {
+        let data = create_snes_rom_data(0x80000, 0, 0xFF, false); // LoROM, Unknown region
+        analyze_snes_data(&data, "test_lorom_unknown.sfc")?;
+        Ok(())
+    }
+}

@@ -72,3 +72,64 @@ pub fn analyze_sega_cartridge_data(data: &[u8], source_name: &str) -> Result<(),
     print_separator();
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error;
+
+    #[test]
+    fn test_analyze_sega_cartridge_data_usa() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x200];
+        data[0x100..0x110].copy_from_slice(b"SEGA MEGA DRIVE ");
+        data[0x1F0] = b'U'; // USA region
+        data[0x110..0x130].copy_from_slice(b"GAME TITLE DOMESTIC             ");
+        data[0x130..0x150].copy_from_slice(b"GAME TITLE INTERNATL            ");
+        analyze_sega_cartridge_data(&data, "test_rom_us.md")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_sega_cartridge_data_japan() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x200];
+        data[0x100..0x110].copy_from_slice(b"SEGA MEGA DRIVE ");
+        data[0x1F0] = b'J'; // Japan region
+        data[0x110..0x130].copy_from_slice(b"GAME TITLE DOMESTIC             ");
+        data[0x130..0x150].copy_from_slice(b"GAME TITLE INTERNATL            ");
+        analyze_sega_cartridge_data(&data, "test_rom_jp.md")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_sega_cartridge_data_europe() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x200];
+        data[0x100..0x110].copy_from_slice(b"SEGA MEGA DRIVE ");
+        data[0x1F0] = b'E'; // Europe region
+        data[0x110..0x130].copy_from_slice(b"GAME TITLE DOMESTIC             ");
+        data[0x130..0x150].copy_from_slice(b"GAME TITLE INTERNATL            ");
+        analyze_sega_cartridge_data(&data, "test_rom_eur.md")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_sega_cartridge_data_genesis_signature() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x200];
+        data[0x100..0x110].copy_from_slice(b"SEGA GENESIS    ");
+        data[0x1F0] = b'U'; // USA region
+        data[0x110..0x130].copy_from_slice(b"GENESIS DOMESTIC                ");
+        data[0x130..0x150].copy_from_slice(b"GENESIS INTERNATL               ");
+        analyze_sega_cartridge_data(&data, "test_rom_genesis.gen")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_sega_cartridge_data_unknown_region() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x200];
+        data[0x100..0x110].copy_from_slice(b"SEGA MEGA DRIVE ");
+        data[0x1F0] = b'Z'; // Unknown region
+        data[0x110..0x130].copy_from_slice(b"UNKNOWN REGION                  ");
+        data[0x130..0x150].copy_from_slice(b"UNKNOWN REGION                  ");
+        analyze_sega_cartridge_data(&data, "test_rom_unknown.md")?;
+        Ok(())
+    }
+}

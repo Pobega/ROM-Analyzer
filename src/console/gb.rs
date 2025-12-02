@@ -41,3 +41,39 @@ pub fn analyze_gb_data(data: &[u8], source_name: &str) -> Result<(), Box<dyn Err
     print_separator();
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error;
+
+    #[test]
+    fn test_analyze_gb_data_japan() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x14B];
+        data[0x14A] = 0x00; // Japan region
+        data[0x143] = 0x00; // Original Game Boy
+        data[0x134..0x143].copy_from_slice(b"GAMETITLE      ");
+        analyze_gb_data(&data, "test_rom_jp.gb")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_gb_data_non_japan() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x14B];
+        data[0x14A] = 0x01; // Non-Japan region
+        data[0x143] = 0x00; // Original Game Boy
+        data[0x134..0x143].copy_from_slice(b"GAMETITLE      ");
+        analyze_gb_data(&data, "test_rom_us.gb")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_gbc_data_japan() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x14B];
+        data[0x14A] = 0x00; // Japan region
+        data[0x143] = 0x80; // Game Boy Color
+        data[0x134..0x143].copy_from_slice(b"GBC TITLE      ");
+        analyze_gb_data(&data, "test_rom_jp.gbc")?;
+        Ok(())
+    }
+}

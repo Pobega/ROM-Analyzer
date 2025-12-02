@@ -54,3 +54,45 @@ pub fn analyze_gba_data(data: &[u8], source_name: &str) -> Result<(), Box<dyn Er
     print_separator();
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error;
+
+    #[test]
+    fn test_analyze_gba_data_japan_code() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0xC0];
+        data[0xB4] = 0x00; // Japan region code
+        data[0xA0..0xAC].copy_from_slice(b"GBA_JP_GAME ");
+        analyze_gba_data(&data, "test_rom_jp.gba")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_gba_data_usa_code() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0xC0];
+        data[0xB4] = 0x01; // USA region code
+        data[0xA0..0xAC].copy_from_slice(b"GBA_US_GAME ");
+        analyze_gba_data(&data, "test_rom_us.gba")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_gba_data_europe_char() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0xC0];
+        data[0xB4] = b'E'; // Europe region char
+        data[0xA0..0xAC].copy_from_slice(b"GBA_EUR_GAME");
+        analyze_gba_data(&data, "test_rom_eur.gba")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_gba_data_japan_char() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0xC0];
+        data[0xB4] = b'J'; // Japan region char
+        data[0xA0..0xAC].copy_from_slice(b"GBA_JP_CHAR ");
+        analyze_gba_data(&data, "test_rom_jp_char.gba")?;
+        Ok(())
+    }
+}

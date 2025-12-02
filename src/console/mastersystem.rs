@@ -30,3 +30,33 @@ pub fn analyze_mastersystem_data(data: &[u8], source_name: &str) -> Result<(), B
     print_separator();
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error;
+
+    #[test]
+    fn test_analyze_mastersystem_data_japan() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x7FFD];
+        data[0x7FFC] = 0x30; // Japan region
+        analyze_mastersystem_data(&data, "test_rom_jp.sms")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_mastersystem_data_europe() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x7FFD];
+        data[0x7FFC] = 0x4C; // Europe / Overseas region
+        analyze_mastersystem_data(&data, "test_rom_eur.sms")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_mastersystem_data_unknown() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x7FFD];
+        data[0x7FFC] = 0x00; // Unknown region
+        analyze_mastersystem_data(&data, "test_rom.sms")?;
+        Ok(())
+    }
+}

@@ -42,3 +42,63 @@ pub fn analyze_segacd_data(data: &[u8], source_name: &str) -> Result<(), Box<dyn
     print_separator();
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error;
+
+    #[test]
+    fn test_analyze_segacd_data_japan() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x200];
+        data[0x100..0x107].copy_from_slice(b"SEGA CD");
+        data[0x10B] = 0x40; // Japan region
+        analyze_segacd_data(&data, "test_rom_jp.iso")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_segacd_data_europe() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x200];
+        data[0x100..0x107].copy_from_slice(b"SEGA CD");
+        data[0x10B] = 0x80; // Europe region
+        analyze_segacd_data(&data, "test_rom_eur.iso")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_segacd_data_usa() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x200];
+        data[0x100..0x107].copy_from_slice(b"SEGA CD");
+        data[0x10B] = 0xC0; // USA region
+        analyze_segacd_data(&data, "test_rom_us.iso")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_segacd_data_unrestricted() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x200];
+        data[0x100..0x107].copy_from_slice(b"SEGA CD");
+        data[0x10B] = 0x00; // Unrestricted region
+        analyze_segacd_data(&data, "test_rom_unrestricted.iso")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_segacd_data_mega_signature() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x200];
+        data[0x100..0x109].copy_from_slice(b"SEGA MEGA");
+        data[0x10B] = 0x40; // Japan region
+        analyze_segacd_data(&data, "test_rom_mega_jp.iso")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_segacd_data_invalid_signature() -> Result<(), Box<dyn Error>> {
+        let mut data = vec![0; 0x200];
+        data[0x100..0x107].copy_from_slice(b"BAD_SIG");
+        data[0x10B] = 0x40; // Japan region (should still try to process)
+        analyze_segacd_data(&data, "test_rom_bad_sig.iso")?;
+        Ok(())
+    }
+}

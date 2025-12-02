@@ -74,3 +74,31 @@ pub fn analyze_nes_data(data: &[u8], source_name: &str) -> Result<(), Box<dyn Er
     print_separator();
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error;
+
+    #[test]
+    fn test_analyze_nes_data_ntsc() -> Result<(), Box<dyn Error>> {
+        // Minimal NES header for NTSC (flag_9_byte = 0x00)
+        let mut data = vec![0; 16];
+        data[0..4].copy_from_slice(b"NES\x1a");
+        data[9] = 0x00; // NTSC region
+
+        analyze_nes_data(&data, "test_rom_ntsc.nes")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_nes_data_pal() -> Result<(), Box<dyn Error>> {
+        // Minimal NES header for PAL (flag_9_byte = 0x01)
+        let mut data = vec![0; 16];
+        data[0..4].copy_from_slice(b"NES\x1a");
+        data[9] = 0x01; // PAL region
+
+        analyze_nes_data(&data, "test_rom_pal.nes")?;
+        Ok(())
+    }
+}
