@@ -32,7 +32,7 @@ fn process_single_file(
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     let cli = Cli::parse();
 
     print_separator();
@@ -68,6 +68,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if had_error {
         std::process::exit(1);
     }
-
-    Ok(())
 }
