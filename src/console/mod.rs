@@ -1,10 +1,10 @@
-pub mod nes;
-pub mod snes;
-pub mod n64;
-pub mod mastersystem;
 pub mod gamegear;
 pub mod gb;
 pub mod gba;
-pub mod segacd;
-pub mod sega_cartridge;
+pub mod mastersystem;
+pub mod n64;
+pub mod nes;
 pub mod psx;
+pub mod sega_cartridge;
+pub mod segacd;
+pub mod snes;

@@ -1,7 +1,7 @@
 use std::error::Error;
-use std::path::Path;
 use std::fs::File;
 use std::io::BufReader;
+use std::path::Path;
 
 use chd::Chd;
 
@@ -24,7 +24,9 @@ pub fn analyze_chd_file(filepath: &Path, source_name: &str) -> Result<(), Box<dy
     let hunk_size = chd.header().hunk_size();
 
     let mut decompressed_data = Vec::new();
-    decompressed_data.reserve_exact(((hunk_count as u64) * (hunk_size as u64)).min(MAX_HEADER_SIZE as u64) as usize);
+    decompressed_data.reserve_exact(
+        ((hunk_count as u64) * (hunk_size as u64)).min(MAX_HEADER_SIZE as u64) as usize,
+    );
 
     let mut out_buf = chd.get_hunksized_buffer();
     let mut temp_buf = Vec::new();
@@ -36,20 +38,26 @@ pub fn analyze_chd_file(filepath: &Path, source_name: &str) -> Result<(), Box<dy
 
         let mut hunk = chd.hunk(hunk_num)?;
         hunk.read_hunk_in(&mut temp_buf, &mut out_buf)?;
-        
+
         let remaining_capacity = MAX_HEADER_SIZE - decompressed_data.len();
         let data_to_add = out_buf.len().min(remaining_capacity);
         decompressed_data.extend_from_slice(&out_buf[..data_to_add]);
     }
 
-    println!("Decompressed first {} bytes for header analysis.", decompressed_data.len());
+    println!(
+        "Decompressed first {} bytes for header analysis.",
+        decompressed_data.len()
+    );
 
     // --- Console Dispatch Logic ---
     // Check for "SEGA CD" signature at offset 0x100 for Sega CD
     const SEGA_CD_SIGNATURE_OFFSET: usize = 0x100;
     const SEGA_CD_SIGNATURE: &[u8] = b"SEGA CD";
-    if decompressed_data.len() >= SEGA_CD_SIGNATURE_OFFSET + SEGA_CD_SIGNATURE.len() &&
-       decompressed_data[SEGA_CD_SIGNATURE_OFFSET..SEGA_CD_SIGNATURE_OFFSET + SEGA_CD_SIGNATURE.len()] == *SEGA_CD_SIGNATURE {
+    if decompressed_data.len() >= SEGA_CD_SIGNATURE_OFFSET + SEGA_CD_SIGNATURE.len()
+        && decompressed_data
+            [SEGA_CD_SIGNATURE_OFFSET..SEGA_CD_SIGNATURE_OFFSET + SEGA_CD_SIGNATURE.len()]
+            == *SEGA_CD_SIGNATURE
+    {
         println!("Detected Sega CD signature. Analyzing as Sega CD.");
         segacd::analyze_segacd_data(&decompressed_data, source_name)
     } else {

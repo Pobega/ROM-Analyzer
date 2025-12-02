@@ -1,6 +1,6 @@
-use std::error::Error;
-use crate::region::infer_region_from_filename;
 use crate::print_separator;
+use crate::region::infer_region_from_filename;
+use std::error::Error;
 
 pub fn analyze_gamegear_data(_data: &[u8], source_name: &str) -> Result<(), Box<dyn Error>> {
     // Sega Game Gear ROMs, like Master System, often lack a standardized region code in the header.

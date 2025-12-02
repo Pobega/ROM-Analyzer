@@ -1,17 +1,23 @@
-use std::error::Error;
 use crate::print_separator;
+use std::error::Error;
 
-use crate::error::RomAnalyzerError;
 use crate::check_region_mismatch;
+use crate::error::RomAnalyzerError;
 
 pub fn analyze_segacd_data(data: &[u8], source_name: &str) -> Result<(), Box<dyn Error>> {
     if data.len() < 0x200 {
-        return Err(Box::new(RomAnalyzerError::new("Sega CD boot file too small.")));
+        return Err(Box::new(RomAnalyzerError::new(
+            "Sega CD boot file too small.",
+        )));
     }
 
-    let signature = String::from_utf8_lossy(&data[0x100..0x107]).trim().to_string();
+    let signature = String::from_utf8_lossy(&data[0x100..0x107])
+        .trim()
+        .to_string();
     if signature != "SEGA CD" && signature != "SEGA MEGA" {
-        println!("[!] Warning: File does not appear to be a standard Sega CD boot file (no SEGA CD signature at 0x100).");
+        println!(
+            "[!] Warning: File does not appear to be a standard Sega CD boot file (no SEGA CD signature at 0x100)."
+        );
     }
 
     // Region byte is at offset 0x10B in the boot program
@@ -23,7 +29,8 @@ pub fn analyze_segacd_data(data: &[u8], source_name: &str) -> Result<(), Box<dyn
         0xC0 => "USA (NTSC-U)",
         0x00 => "Unrestricted/BIOS region",
         _ => "Unknown Code",
-    }.to_string();
+    }
+    .to_string();
 
     print_separator();
     println!("Source:       {}", source_name);

@@ -1,11 +1,11 @@
+use clap::Parser;
 use std::fs::{self, File};
 use std::path::Path;
-use clap::Parser;
 
+use rom_analyzer::archive::zip::process_zip_file;
+use rom_analyzer::dispatcher::process_rom_data;
 use rom_analyzer::error::RomAnalyzerError;
 use rom_analyzer::print_separator;
-use rom_analyzer::dispatcher::process_rom_data;
-use rom_analyzer::archive::zip::process_zip_file;
 
 use rom_analyzer::archive::chd::analyze_chd_file;
 
@@ -27,7 +27,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_separator();
 
     if !path.exists() {
-        return Err(Box::new(RomAnalyzerError::new(&format!("File not found: {}", file_path))));
+        return Err(Box::new(RomAnalyzerError::new(&format!(
+            "File not found: {}",
+            file_path
+        ))));
     }
 
     let file_name = path.file_name().unwrap().to_str().unwrap();

@@ -9,7 +9,9 @@ pub struct RomAnalyzerError {
 
 impl RomAnalyzerError {
     pub fn new(msg: &str) -> RomAnalyzerError {
-        RomAnalyzerError { details: msg.to_string() }
+        RomAnalyzerError {
+            details: msg.to_string(),
+        }
     }
 }
 

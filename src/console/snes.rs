@@ -1,35 +1,55 @@
-use std::error::Error;
 use crate::check_region_mismatch;
-use crate::print_separator;
 use crate::error::RomAnalyzerError;
+use crate::print_separator;
+use std::error::Error;
 
 pub fn get_snes_region_name(code: u8) -> String {
     let regions = vec![
-        (0x00, "Japan (NTSC)"), (0x01, "USA / Canada (NTSC)"), (0x02, "Europe / Oceania / Asia (PAL)"),
-        (0x03, "Sweden / Scandinavia (PAL)"), (0x04, "Finland (PAL)"), (0x05, "Denmark (PAL)"),
-        (0x06, "France (PAL)"), (0x07, "Netherlands (PAL)"), (0x08, "Spain (PAL)"),
-        (0x09, "Germany (PAL)"), (0x0A, "Italy (PAL)"), (0x0B, "China (PAL)"),
-        (0x0C, "Indonesia (PAL)"), (0x0D, "South Korea (NTSC)"), (0x0E, "Common / International"),
-        (0x0F, "Canada (NTSC)"), (0x10, "Brazil (NTSC)"), (0x11, "Australia (PAL)"),
-        (0x12, "Other (Variation 1)"), (0x13, "Other (Variation 2)"), (0x14, "Other (Variation 3)"),
+        (0x00, "Japan (NTSC)"),
+        (0x01, "USA / Canada (NTSC)"),
+        (0x02, "Europe / Oceania / Asia (PAL)"),
+        (0x03, "Sweden / Scandinavia (PAL)"),
+        (0x04, "Finland (PAL)"),
+        (0x05, "Denmark (PAL)"),
+        (0x06, "France (PAL)"),
+        (0x07, "Netherlands (PAL)"),
+        (0x08, "Spain (PAL)"),
+        (0x09, "Germany (PAL)"),
+        (0x0A, "Italy (PAL)"),
+        (0x0B, "China (PAL)"),
+        (0x0C, "Indonesia (PAL)"),
+        (0x0D, "South Korea (NTSC)"),
+        (0x0E, "Common / International"),
+        (0x0F, "Canada (NTSC)"),
+        (0x10, "Brazil (NTSC)"),
+        (0x11, "Australia (PAL)"),
+        (0x12, "Other (Variation 1)"),
+        (0x13, "Other (Variation 2)"),
+        (0x14, "Other (Variation 3)"),
     ];
     for (c, name) in regions {
-        if c == code { return name.to_string(); }
+        if c == code {
+            return name.to_string();
+        }
     }
     format!("Unknown Region (0x{:02X})", code)
 }
 
 pub fn validate_snes_checksum(rom_data: &[u8], header_offset: usize) -> bool {
-    if header_offset + 0x20 > rom_data.len() { return false; }
+    if header_offset + 0x20 > rom_data.len() {
+        return false;
+    }
 
-    let complement_bytes: [u8; 2] = match rom_data[header_offset + 0x1C .. header_offset + 0x1E].try_into() {
-        Ok(b) => b,
-        Err(_) => return false,
-    };
-    let checksum_bytes: [u8; 2] = match rom_data[header_offset + 0x1E .. header_offset + 0x20].try_into() {
-        Ok(b) => b,
-        Err(_) => return false,
-    };
+    let complement_bytes: [u8; 2] =
+        match rom_data[header_offset + 0x1C..header_offset + 0x1E].try_into() {
+            Ok(b) => b,
+            Err(_) => return false,
+        };
+    let checksum_bytes: [u8; 2] =
+        match rom_data[header_offset + 0x1E..header_offset + 0x20].try_into() {
+            Ok(b) => b,
+            Err(_) => return false,
+        };
 
     let complement = u16::from_le_bytes(complement_bytes);
     let checksum = u16::from_le_bytes(checksum_bytes);
@@ -58,19 +78,26 @@ pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<(), Box<dyn E
         valid_addr = hirom_addr;
         mapping_type = "HiROM";
     } else {
-        println!("[!] Checksum validation failed. Attempting to read from LoROM location as fallback...");
+        println!(
+            "[!] Checksum validation failed. Attempting to read from LoROM location as fallback..."
+        );
         valid_addr = lorom_addr;
         mapping_type = "LoROM (Unverified)";
     }
 
     if valid_addr + 0x20 > file_size {
-        return Err(Box::new(RomAnalyzerError::new(&format!("ROM data is too small or invalid (size: {} bytes).", file_size))));
+        return Err(Box::new(RomAnalyzerError::new(&format!(
+            "ROM data is too small or invalid (size: {} bytes).",
+            file_size
+        ))));
     }
 
     let region_byte_offset = valid_addr + 0x19;
     let region_code = data[region_byte_offset];
     let region_name = get_snes_region_name(region_code);
-    let game_title = String::from_utf8_lossy(&data[valid_addr .. valid_addr + 21]).trim().to_string();
+    let game_title = String::from_utf8_lossy(&data[valid_addr..valid_addr + 21])
+        .trim()
+        .to_string();
 
     print_separator();
     println!("Source:       {}", source_name);

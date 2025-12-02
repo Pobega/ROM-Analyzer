@@ -1,13 +1,17 @@
 use std::error::Error;
-use std::io::Read;
 use std::fs::File;
+use std::io::Read;
 use zip::ZipArchive;
 
 use crate::error::RomAnalyzerError;
 
 use crate::SUPPORTED_ROM_EXTENSIONS;
 
-pub fn process_zip_file(file: File, original_filename: &str, process_rom_data_fn: &dyn Fn(Vec<u8>, &str) -> Result<(), Box<dyn Error>>) -> Result<(), Box<dyn Error>> {
+pub fn process_zip_file(
+    file: File,
+    original_filename: &str,
+    process_rom_data_fn: &dyn Fn(Vec<u8>, &str) -> Result<(), Box<dyn Error>>,
+) -> Result<(), Box<dyn Error>> {
     let mut archive = ZipArchive::new(file)?;
     let mut found_rom = false;
 
@@ -40,9 +44,10 @@ pub fn process_zip_file(file: File, original_filename: &str, process_rom_data_fn
     }
 
     if !found_rom {
-        return Err(Box::new(RomAnalyzerError::new(
-            &format!("No supported ROM files found within the zip archive: {}", original_filename)
-        )));
+        return Err(Box::new(RomAnalyzerError::new(&format!(
+            "No supported ROM files found within the zip archive: {}",
+            original_filename
+        ))));
     }
     Ok(())
 }
