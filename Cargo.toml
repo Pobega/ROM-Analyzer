@@ -8,3 +8,4 @@ edition = "2024"
 [dependencies]
 zip = "0.6"
 clap = { version = "4.0", features = ["derive"] }
+chd = "0.3.3"
