@@ -16,6 +16,18 @@ struct Cli {
     file_paths: Vec<String>,
 }
 
+fn process_single_file(file_path: &str, path: &Path, file_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    if file_path.to_lowercase().ends_with(".zip") {
+        let file = File::open(path)?;
+        process_zip_file(file, file_name, &process_rom_data)
+    } else if file_path.to_lowercase().ends_with(".chd") {
+        analyze_chd_file(path, file_name)
+    } else {
+        let data = fs::read(path)?;
+        process_rom_data(data, file_name)
+    }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
@@ -38,17 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         };
 
-        let result = (|| {
-            if file_path.to_lowercase().ends_with(".zip") {
-                let file = File::open(path)?;
-                process_zip_file(file, file_name, &process_rom_data)
-            } else if file_path.to_lowercase().ends_with(".chd") {
-                analyze_chd_file(path, file_name)
-            } else {
-                let data = fs::read(path)?;
-                process_rom_data(data, file_name)
-            }
-        })();
+        let result = process_single_file(file_path, path, file_name);
         if let Err(e) = result {
             eprintln!("Error processing file {}: {}", file_path, e);
         }
