@@ -38,3 +38,39 @@ impl From<std::io::Error> for RomAnalyzerError {
         RomAnalyzerError::new(&format!("IO Error: {}", err))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Error as IoError, ErrorKind};
+
+    #[test]
+    fn test_new_error() {
+        let error_msg = "Test error message";
+        let err = RomAnalyzerError::new(error_msg);
+        assert_eq!(err.details, error_msg);
+    }
+
+    #[test]
+    fn test_display_trait() {
+        let error_msg = "Display test";
+        let err = RomAnalyzerError::new(error_msg);
+        assert_eq!(format!("{}", err), error_msg);
+    }
+
+    #[test]
+    fn test_from_zip_error() {
+        let zip_err = ZipError::FileNotFound;
+        let zip_err_display = format!("{}", zip_err);
+        let err: RomAnalyzerError = zip_err.into();
+        assert_eq!(err.details, format!("Zip Error: {}", zip_err_display));
+    }
+
+    #[test]
+    fn test_from_io_error() {
+        let io_err = IoError::new(ErrorKind::NotFound, "File not found");
+        let err: RomAnalyzerError = io_err.into();
+        assert!(err.details.contains("IO Error"));
+        assert!(err.details.contains("File not found"));
+    }
+}
