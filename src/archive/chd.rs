@@ -1,28 +1,59 @@
 use std::error::Error;
 use std::path::Path;
+use std::fs::File;
+use std::io::BufReader;
 
-use crate::error::RomAnalyzerError;
+use chd::Chd;
 
-pub fn analyze_chd_file(_filepath: &Path, source_name: &str) -> Result<(), Box<dyn Error>> {
+use crate::console::psx;
+use crate::console::segacd;
+
+// We only need the first few KB for header analysis for PSX and SegaCD.
+const MAX_HEADER_SIZE: usize = 0x20000; // 128KB
+
+pub fn analyze_chd_file(filepath: &Path, source_name: &str) -> Result<(), Box<dyn Error>> {
     println!("\n=======================================================");
-    println!("  CHD ANALYSIS: Requires External Library (libchd)");
+    println!("  CHD ANALYSIS: {}", source_name);
     println!("=======================================================");
 
-    println!("In a real Rust environment, this function would use FFI (Foreign Function Interface) to bind to the MAME 'libchd' C library.");
-    println!("This library would decompress the hunks of data and extract the raw contents (e.g., a .BIN file) from the archive.");
+    let file = File::open(filepath)?;
+    let mut reader = BufReader::new(file);
+    let mut chd = Chd::open(&mut reader, None)?;
 
-    // --- Conceptual Logic ---
-    // 1. FFI Call: chd_api::open(filepath) -> chd_handle
-    // 2. FFI Call: chd_api::read_raw_track(chd_handle) -> raw_data (Vec<u8>)
+    let hunk_count = chd.header().hunk_count();
+    let hunk_size = chd.header().hunk_size();
 
-    // As a placeholder, we will simulate the failure expected due to the lack of FFI,
-    // but clearly show the intended flow would route to the disc analysis.
+    let mut decompressed_data = Vec::new();
+    decompressed_data.reserve_exact(((hunk_count as u64) * (hunk_size as u64)).min(MAX_HEADER_SIZE as u64) as usize);
 
-    // 3. Routing: process_rom_data(raw_data, virtual_filename)
+    let mut out_buf = chd.get_hunksized_buffer();
+    let mut temp_buf = Vec::new();
 
-    // For demonstration, let's assume the CHD file contained PSX data.
-    // We cannot proceed without the external dependency.
-    return Err(Box::new(RomAnalyzerError::new(
-        &format!("CHD analysis for {} failed: FFI library 'libchd' is missing.", source_name)
-    )));
+    for hunk_num in 0..hunk_count {
+        if decompressed_data.len() >= MAX_HEADER_SIZE {
+            break;
+        }
+
+        let mut hunk = chd.hunk(hunk_num)?;
+        hunk.read_hunk_in(&mut temp_buf, &mut out_buf)?;
+        
+        let remaining_capacity = MAX_HEADER_SIZE - decompressed_data.len();
+        let data_to_add = out_buf.len().min(remaining_capacity);
+        decompressed_data.extend_from_slice(&out_buf[..data_to_add]);
+    }
+
+    println!("Decompressed first {} bytes for header analysis.", decompressed_data.len());
+
+    // --- Console Dispatch Logic ---
+    // Check for "SEGA CD" signature at offset 0x100 for Sega CD
+    const SEGA_CD_SIGNATURE_OFFSET: usize = 0x100;
+    const SEGA_CD_SIGNATURE: &[u8] = b"SEGA CD";
+    if decompressed_data.len() >= SEGA_CD_SIGNATURE_OFFSET + SEGA_CD_SIGNATURE.len() &&
+       decompressed_data[SEGA_CD_SIGNATURE_OFFSET..SEGA_CD_SIGNATURE_OFFSET + SEGA_CD_SIGNATURE.len()] == *SEGA_CD_SIGNATURE {
+        println!("Detected Sega CD signature. Analyzing as Sega CD.");
+        segacd::analyze_segacd_data(&decompressed_data, source_name)
+    } else {
+        println!("No Sega CD signature. Analyzing as PSX.");
+        psx::analyze_psx_data(&decompressed_data, source_name)
+    }
 }

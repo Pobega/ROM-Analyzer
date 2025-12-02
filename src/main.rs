@@ -7,6 +7,8 @@ use rom_analyzer::print_separator;
 use rom_analyzer::dispatcher::process_rom_data;
 use rom_analyzer::archive::zip::process_zip_file;
 
+use rom_analyzer::archive::chd::analyze_chd_file;
+
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
@@ -33,6 +35,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if file_path.to_lowercase().ends_with(".zip") {
         let file = File::open(path)?;
         process_zip_file(file, file_name, &process_rom_data)?;
+    } else if file_path.to_lowercase().ends_with(".chd") {
+        analyze_chd_file(path, file_name)?;
     } else {
         let data = fs::read(path)?;
         process_rom_data(data, file_name)?;
