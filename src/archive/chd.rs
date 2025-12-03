@@ -1,3 +1,4 @@
+use log::info;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
@@ -5,23 +6,32 @@ use std::path::Path;
 
 use chd::Chd;
 
-use crate::console::psx;
-use crate::console::segacd;
+use crate::console::psx::{self, PsxAnalysis};
+use crate::console::segacd::{self, SegaCdAnalysis};
 
 // We only need the first few KB for header analysis for PSX and SegaCD.
 const MAX_HEADER_SIZE: usize = 0x20000; // 128KB
 
-pub fn analyze_chd_file(filepath: &Path, source_name: &str) -> Result<(), Box<dyn Error>> {
-    println!("\n=======================================================");
-    println!("  CHD ANALYSIS: {}", source_name);
-    println!("=======================================================");
+pub enum ChdAnalysis {
+    SegaCD(SegaCdAnalysis),
+    PSX(PsxAnalysis),
+}
 
+pub fn analyze_chd_file(filepath: &Path, source_name: &str) -> Result<ChdAnalysis, Box<dyn Error>> {
     let file = File::open(filepath)?;
     let mut reader = BufReader::new(file);
     let mut chd = Chd::open(&mut reader, None)?;
 
     let hunk_count = chd.header().hunk_count();
     let hunk_size = chd.header().hunk_size();
+
+    info!(
+        "[+] Analyzing CHD file: {}",
+        filepath
+            .file_name()
+            .unwrap_or_else(|| filepath.as_ref())
+            .to_string_lossy()
+    );
 
     let mut decompressed_data = Vec::new();
     decompressed_data.reserve_exact(
@@ -44,8 +54,8 @@ pub fn analyze_chd_file(filepath: &Path, source_name: &str) -> Result<(), Box<dy
         decompressed_data.extend_from_slice(&out_buf[..data_to_add]);
     }
 
-    println!(
-        "Decompressed first {} bytes for header analysis.",
+    info!(
+        "[+] Decompressed first {} bytes for header analysis.",
         decompressed_data.len()
     );
 
@@ -58,10 +68,10 @@ pub fn analyze_chd_file(filepath: &Path, source_name: &str) -> Result<(), Box<dy
             [SEGA_CD_SIGNATURE_OFFSET..SEGA_CD_SIGNATURE_OFFSET + SEGA_CD_SIGNATURE.len()]
             == *SEGA_CD_SIGNATURE
     {
-        println!("Detected Sega CD signature. Analyzing as Sega CD.");
-        segacd::analyze_segacd_data(&decompressed_data, source_name)
+        let analysis = segacd::analyze_segacd_data(&decompressed_data, source_name)?;
+        Ok(ChdAnalysis::SegaCD(analysis))
     } else {
-        println!("No Sega CD signature. Analyzing as PSX.");
-        psx::analyze_psx_data(&decompressed_data, source_name)
+        let analysis = psx::analyze_psx_data(&decompressed_data, source_name)?;
+        Ok(ChdAnalysis::PSX(analysis))
     }
 }

@@ -2,6 +2,7 @@ pub fn infer_region_from_filename(name: &str) -> Option<&'static str> {
     let lower_name = name.to_lowercase();
 
     if lower_name.contains("jap")
+        || lower_name.contains("jp")
         || lower_name.contains("(j)")
         || lower_name.contains("[j]")
         || lower_name.contains("ntsc-j")
@@ -56,8 +57,8 @@ pub fn normalize_header_region(header_text: &str) -> Option<&'static str> {
 #[macro_export]
 macro_rules! check_region_mismatch {
     ($source_name:expr, $region_name:expr) => {
-        let inferred_region = crate::region::infer_region_from_filename($source_name);
-        let header_region_norm = crate::region::normalize_header_region($region_name);
+        let inferred_region = $crate::region::infer_region_from_filename($source_name);
+        let header_region_norm = $crate::region::normalize_header_region($region_name);
 
         if let (Some(inferred), Some(header)) = (inferred_region, header_region_norm) {
             if inferred != header {

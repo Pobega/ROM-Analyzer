@@ -1,13 +1,14 @@
 use std::error::Error;
 
+use crate::RomAnalysisResult;
 use crate::console::gamegear;
 use crate::console::gb;
 use crate::console::gba;
+use crate::console::genesis;
 use crate::console::mastersystem;
 use crate::console::n64;
 use crate::console::nes;
 use crate::console::psx;
-use crate::console::sega_cartridge;
 use crate::console::segacd;
 use crate::console::snes;
 use crate::error::RomAnalyzerError;
@@ -21,7 +22,7 @@ enum RomFileType {
     GameGear,
     GameBoy,
     GameBoyAdvance,
-    SegaCartridge,
+    Genesis,
     SegaCD,
     CDSystem, // For .iso, .bin, .img, .psx which require further inspection
     Unknown,
@@ -41,24 +42,33 @@ fn get_rom_file_type(name: &str) -> RomFileType {
         "gg" => RomFileType::GameGear,
         "gb" | "gbc" => RomFileType::GameBoy,
         "gba" => RomFileType::GameBoyAdvance,
-        "md" | "gen" | "32x" => RomFileType::SegaCartridge,
+        "md" | "gen" | "32x" => RomFileType::Genesis,
         "scd" => RomFileType::SegaCD,
         "iso" | "bin" | "img" | "psx" => RomFileType::CDSystem,
         _ => RomFileType::Unknown,
     }
 }
 
-pub fn process_rom_data(data: Vec<u8>, name: &str) -> Result<(), Box<dyn Error>> {
-    match get_rom_file_type(name) {
-        RomFileType::Nes => nes::analyze_nes_data(&data, name),
-        RomFileType::Snes => snes::analyze_snes_data(&data, name),
-        RomFileType::N64 => n64::analyze_n64_data(&data, name),
-        RomFileType::MasterSystem => mastersystem::analyze_mastersystem_data(&data, name),
-        RomFileType::GameGear => gamegear::analyze_gamegear_data(&data, name),
-        RomFileType::GameBoy => gb::analyze_gb_data(&data, name),
-        RomFileType::GameBoyAdvance => gba::analyze_gba_data(&data, name),
-        RomFileType::SegaCartridge => sega_cartridge::analyze_sega_cartridge_data(&data, name),
-        RomFileType::SegaCD => segacd::analyze_segacd_data(&data, name),
+pub fn process_rom_data(data: Vec<u8>, name: &str) -> Result<RomAnalysisResult, Box<dyn Error>> {
+    let rom_data = match get_rom_file_type(name) {
+        RomFileType::Nes => nes::analyze_nes_data(&data, name).map(RomAnalysisResult::NES),
+        RomFileType::Snes => snes::analyze_snes_data(&data, name).map(RomAnalysisResult::SNES),
+        RomFileType::N64 => n64::analyze_n64_data(&data, name).map(RomAnalysisResult::N64),
+        RomFileType::MasterSystem => mastersystem::analyze_mastersystem_data(&data, name)
+            .map(RomAnalysisResult::MasterSystem),
+        RomFileType::GameGear => {
+            gamegear::analyze_gamegear_data(&data, name).map(RomAnalysisResult::GameGear)
+        }
+        RomFileType::GameBoy => gb::analyze_gb_data(&data, name).map(RomAnalysisResult::GB),
+        RomFileType::GameBoyAdvance => {
+            gba::analyze_gba_data(&data, name).map(RomAnalysisResult::GBA)
+        }
+        RomFileType::Genesis => {
+            genesis::analyze_genesis_data(&data, name).map(RomAnalysisResult::Genesis)
+        }
+        RomFileType::SegaCD => {
+            segacd::analyze_segacd_data(&data, name).map(RomAnalysisResult::SegaCD)
+        }
         RomFileType::CDSystem => {
             // Some cartridge formats (like Sega Genesis) use the .bin extension, which
             // conflicts with CD image formats. This checks for cartridge headers inside
@@ -74,20 +84,22 @@ pub fn process_rom_data(data: Vec<u8>, name: &str) -> Result<(), Box<dyn Error>>
                     || data[SEGA_HEADER_START..SEGA_GENESIS_HEADER_END]
                         .starts_with(b"SEGA GENESIS"))
             {
-                sega_cartridge::analyze_sega_cartridge_data(&data, name)
+                genesis::analyze_genesis_data(&data, name).map(RomAnalysisResult::Genesis)
             } else if data.len() >= SEGA_CD_MIN_LEN
                 && data[SEGA_HEADER_START..SEGA_CD_SIGNATURE_END].eq_ignore_ascii_case(b"SEGA CD")
             {
-                segacd::analyze_segacd_data(&data, name)
+                segacd::analyze_segacd_data(&data, name).map(RomAnalysisResult::SegaCD)
             } else {
-                psx::analyze_psx_data(&data, name)
+                psx::analyze_psx_data(&data, name).map(RomAnalysisResult::PSX)
             }
         }
         RomFileType::Unknown => Err(Box::new(RomAnalyzerError::new(&format!(
             "Unrecognized ROM file extension for dispatch: {}",
             name
-        )))),
-    }
+        )))
+        .into()),
+    };
+    Ok(rom_data?)
 }
 
 #[cfg(test)]
@@ -107,9 +119,9 @@ mod tests {
         assert_eq!(get_rom_file_type("game.gb"), RomFileType::GameBoy);
         assert_eq!(get_rom_file_type("game.gbc"), RomFileType::GameBoy);
         assert_eq!(get_rom_file_type("game.gba"), RomFileType::GameBoyAdvance);
-        assert_eq!(get_rom_file_type("game.md"), RomFileType::SegaCartridge);
-        assert_eq!(get_rom_file_type("game.gen"), RomFileType::SegaCartridge);
-        assert_eq!(get_rom_file_type("game.32x"), RomFileType::SegaCartridge);
+        assert_eq!(get_rom_file_type("game.md"), RomFileType::Genesis);
+        assert_eq!(get_rom_file_type("game.gen"), RomFileType::Genesis);
+        assert_eq!(get_rom_file_type("game.32x"), RomFileType::Genesis);
         assert_eq!(get_rom_file_type("game.scd"), RomFileType::SegaCD);
         assert_eq!(get_rom_file_type("game.iso"), RomFileType::CDSystem);
         assert_eq!(get_rom_file_type("game.bin"), RomFileType::CDSystem);
@@ -135,7 +147,7 @@ mod tests {
         let mut data = vec![0; 0x120];
         data[0x100..0x110].copy_from_slice(b"SEGA MEGA DRIVE\0"); // Padded to 16 bytes
         let name = "game.bin";
-        // This will attempt to call sega_cartridge::analyze_sega_cartridge_data
+        // This will attempt to call genesis::analyze_genesis_data
         // Since we don't have a full mock, we'll assert it doesn't return an unknown error
         // A successful return indicates it dispatched to a recognized console analyzer.
         let result = process_rom_data(data, name);
