@@ -4,7 +4,7 @@ use crate::print_separator;
 use std::error::Error;
 
 /// Struct to hold the analysis results for a PSX ROM.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct PsxAnalysis {
     /// The identified region name (e.g., "North America (NTSC-U)").
     pub region: &'static str,

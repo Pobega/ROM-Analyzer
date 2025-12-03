@@ -4,7 +4,7 @@ use crate::print_separator;
 use std::error::Error;
 
 /// Struct to hold the analysis results for a Sega CD ROM.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct SegaCdAnalysis {
     /// The detected signature from the boot file (e.g., "SEGA CD", "SEGA MEGA").
     pub signature: String,

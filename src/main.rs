@@ -3,6 +3,7 @@ use std::fs::{self, File};
 use std::path::Path;
 
 use rom_analyzer::archive::zip::process_zip_file;
+use rom_analyzer::RomAnalysisResult;
 use rom_analyzer::dispatcher::process_rom_data;
 use rom_analyzer::print_separator;
 
@@ -17,24 +18,35 @@ struct Cli {
     file_paths: Vec<String>,
 }
 
+fn get_file_extension_lowercase(file_path: &str) -> String {
+    std::path::Path::new(file_path)
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        .unwrap_or_default()
+        .to_lowercase()
+}
+
 fn process_single_file(
     file_path: &str,
     path: &Path,
     file_name: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if file_path.to_lowercase().ends_with(".zip") {
-        let file = File::open(path)?;
-        process_zip_file(file, file_name, &process_rom_data)
-    } else if file_path.to_lowercase().ends_with(".chd") {
-        let analysis_result = analyze_chd_file(path, file_name)?;
-        match analysis_result {
-            ChdAnalysis::SegaCD(analysis) => analysis.print(),
-            ChdAnalysis::PSX(analysis) => analysis.print(),
+) -> Result<RomAnalysisResult, Box<dyn std::error::Error>> {
+    match get_file_extension_lowercase(file_path).as_str() {
+        "zip" => {
+            let file = File::open(path)?;
+            process_zip_file(file, file_name, &process_rom_data)
         }
-        Ok(())
-    } else {
-        let data = fs::read(path)?;
-        process_rom_data(data, file_name)
+        "chd" => {
+            let analysis_result = analyze_chd_file(path, file_name)?;
+            match analysis_result {
+                ChdAnalysis::SegaCD(analysis) => Ok(RomAnalysisResult::SegaCD(analysis)),
+                ChdAnalysis::PSX(analysis) => Ok(RomAnalysisResult::PSX(analysis)),
+            }
+        }
+        _ => {
+            let data = fs::read(path)?;
+            process_rom_data(data, file_name)
+        }
     }
 }
 
@@ -65,9 +77,12 @@ fn main() {
         };
 
         let result = process_single_file(file_path, path, file_name);
-        if let Err(e) = result {
-            eprintln!("Error processing file {}: {}", file_path, e);
-            had_error = true;
+        match result {
+            Ok(analysis) => analysis.print(),
+            Err(e) => {
+                eprintln!("Error processing file {}: {}", file_path, e);
+                had_error = true;
+            }
         }
     }
 

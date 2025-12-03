@@ -7,7 +7,7 @@ use crate::error::RomAnalyzerError;
 use crate::print_separator;
 
 /// Struct to hold the analysis results for a SNES ROM.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct SnesAnalysis {
     /// The name of the source file.
     pub source_name: String,

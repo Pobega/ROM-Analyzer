@@ -4,7 +4,7 @@ use crate::print_separator;
 use std::error::Error;
 
 /// Struct to hold the analysis results for a Sega cartridge (Genesis/Mega Drive) ROM.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct SegaCartridgeAnalysis {
     /// The detected console name (e.g., "SEGA MEGA DRIVE", "SEGA GENESIS").
     pub console_name: String,

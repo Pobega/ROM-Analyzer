@@ -4,7 +4,7 @@ use crate::print_separator;
 use std::error::Error;
 
 /// Struct to hold the analysis results for a Master System ROM.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct MasterSystemAnalysis {
     /// The raw region byte value.
     pub region_byte: u8,

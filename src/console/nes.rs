@@ -19,7 +19,7 @@ const NES2_FORMAT_MASK: u8 = 0x0C;
 const NES2_FORMAT_EXPECTED_VALUE: u8 = 0x08;
 
 /// Struct to hold the analysis results for a NES ROM.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct NesAnalysis {
     /// The identified region name (e.g., "NTSC (USA/Japan)").
     pub region: &'static str,

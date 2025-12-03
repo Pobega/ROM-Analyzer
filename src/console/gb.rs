@@ -5,7 +5,7 @@ use crate::error::RomAnalyzerError;
 use crate::print_separator;
 
 /// Struct to hold the analysis results for a Game Boy ROM.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct GbAnalysis {
     /// The identified system type (e.g., "Game Boy (GB)" or "Game Boy Color (GBC)").
     pub system_type: String,

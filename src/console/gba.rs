@@ -7,7 +7,7 @@ use crate::error::RomAnalyzerError;
 use crate::print_separator;
 
 /// Struct to hold the analysis results for a GBA ROM.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct GbaAnalysis {
     /// The game title extracted from the ROM header.
     pub game_title: String,

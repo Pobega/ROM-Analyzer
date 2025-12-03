@@ -3,6 +3,7 @@ use std::error::Error;
 use crate::console::gamegear;
 use crate::console::gb;
 use crate::console::gba;
+use crate::RomAnalysisResult;
 use crate::console::mastersystem;
 use crate::console::n64;
 use crate::console::nes;
@@ -48,52 +49,24 @@ fn get_rom_file_type(name: &str) -> RomFileType {
     }
 }
 
-pub fn process_rom_data(data: Vec<u8>, name: &str) -> Result<(), Box<dyn Error>> {
-    match get_rom_file_type(name) {
-        RomFileType::Nes => {
-            let analysis = nes::analyze_nes_data(&data, name)?;
-            analysis.print();
-            Ok(())
-        }
-        RomFileType::Snes => {
-            let analysis = snes::analyze_snes_data(&data, name)?;
-            analysis.print();
-            Ok(())
-        }
-        RomFileType::N64 => {
-            let analysis = n64::analyze_n64_data(&data, name)?;
-            analysis.print();
-            Ok(())
-        }
-        RomFileType::MasterSystem => {
-            let analysis = mastersystem::analyze_mastersystem_data(&data, name)?;
-            analysis.print();
-            Ok(())
-        }
+pub fn process_rom_data(data: Vec<u8>, name: &str) -> Result<RomAnalysisResult, Box<dyn Error>> {
+    let rom_data = match get_rom_file_type(name) {
+        RomFileType::Nes => nes::analyze_nes_data(&data, name).map(RomAnalysisResult::NES),
+        RomFileType::Snes => snes::analyze_snes_data(&data, name).map(RomAnalysisResult::SNES),
+        RomFileType::N64 => n64::analyze_n64_data(&data, name).map(RomAnalysisResult::N64),
+        RomFileType::MasterSystem => mastersystem::analyze_mastersystem_data(&data, name)
+            .map(RomAnalysisResult::MasterSystem),
         RomFileType::GameGear => {
-            let analysis = gamegear::analyze_gamegear_data(&data, name)?;
-            analysis.print();
-            Ok(())
+            gamegear::analyze_gamegear_data(&data, name).map(RomAnalysisResult::GameGear)
         }
-        RomFileType::GameBoy => {
-            let analysis = gb::analyze_gb_data(&data, name)?;
-            analysis.print();
-            Ok(())
-        }
+        RomFileType::GameBoy => gb::analyze_gb_data(&data, name).map(RomAnalysisResult::GB),
         RomFileType::GameBoyAdvance => {
-            let analysis = gba::analyze_gba_data(&data, name)?;
-            analysis.print();
-            Ok(())
+            gba::analyze_gba_data(&data, name).map(RomAnalysisResult::GBA)
         }
-        RomFileType::SegaCartridge => {
-            let analysis = sega_cartridge::analyze_sega_cartridge_data(&data, name)?;
-            analysis.print();
-            Ok(())
-        }
+        RomFileType::SegaCartridge => sega_cartridge::analyze_sega_cartridge_data(&data, name)
+            .map(RomAnalysisResult::SegaCartridge),
         RomFileType::SegaCD => {
-            let analysis = segacd::analyze_segacd_data(&data, name)?;
-            analysis.print();
-            Ok(())
+            segacd::analyze_segacd_data(&data, name).map(RomAnalysisResult::SegaCD)
         }
         RomFileType::CDSystem => {
             // Some cartridge formats (like Sega Genesis) use the .bin extension, which
@@ -110,26 +83,23 @@ pub fn process_rom_data(data: Vec<u8>, name: &str) -> Result<(), Box<dyn Error>>
                     || data[SEGA_HEADER_START..SEGA_GENESIS_HEADER_END]
                         .starts_with(b"SEGA GENESIS"))
             {
-                let analysis = sega_cartridge::analyze_sega_cartridge_data(&data, name)?;
-                analysis.print();
-                Ok(())
+                sega_cartridge::analyze_sega_cartridge_data(&data, name)
+                    .map(RomAnalysisResult::SegaCartridge)
             } else if data.len() >= SEGA_CD_MIN_LEN
                 && data[SEGA_HEADER_START..SEGA_CD_SIGNATURE_END].eq_ignore_ascii_case(b"SEGA CD")
             {
-                let analysis = segacd::analyze_segacd_data(&data, name)?;
-                analysis.print();
-                Ok(())
+                segacd::analyze_segacd_data(&data, name).map(RomAnalysisResult::SegaCD)
             } else {
-                let analysis = psx::analyze_psx_data(&data, name)?;
-                analysis.print();
-                Ok(())
+                psx::analyze_psx_data(&data, name).map(RomAnalysisResult::PSX)
             }
         }
         RomFileType::Unknown => Err(Box::new(RomAnalyzerError::new(&format!(
             "Unrecognized ROM file extension for dispatch: {}",
             name
-        )))),
-    }
+        )))
+        .into()),
+    };
+    Ok(rom_data?)
 }
 
 #[cfg(test)]

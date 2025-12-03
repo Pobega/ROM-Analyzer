@@ -3,7 +3,7 @@ use crate::region::infer_region_from_filename;
 use std::error::Error;
 
 /// Struct to hold the analysis results for a Game Gear ROM.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct GameGearAnalysis {
     /// The identified region name (e.g., "USA").
     pub region: Option<String>,

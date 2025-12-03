@@ -7,7 +7,7 @@ use crate::error::RomAnalyzerError;
 use crate::print_separator;
 
 /// Struct to hold the analysis results for an N64 ROM.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct N64Analysis {
     /// The identified region name (e.g., "USA / NTSC").
     pub region: String,
