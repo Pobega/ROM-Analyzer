@@ -6,6 +6,7 @@ use rom_analyzer::archive::zip::process_zip_file;
 use rom_analyzer::dispatcher::process_rom_data;
 use rom_analyzer::print_separator;
 
+use rom_analyzer::archive::chd::ChdAnalysis;
 use rom_analyzer::archive::chd::analyze_chd_file;
 
 #[derive(Parser)]
@@ -25,7 +26,12 @@ fn process_single_file(
         let file = File::open(path)?;
         process_zip_file(file, file_name, &process_rom_data)
     } else if file_path.to_lowercase().ends_with(".chd") {
-        analyze_chd_file(path, file_name)
+        let analysis_result = analyze_chd_file(path, file_name)?;
+        match analysis_result {
+            ChdAnalysis::SegaCD(analysis) => analysis.print(),
+            ChdAnalysis::PSX(analysis) => analysis.print(),
+        }
+        Ok(())
     } else {
         let data = fs::read(path)?;
         process_rom_data(data, file_name)

@@ -2,6 +2,7 @@ pub fn infer_region_from_filename(name: &str) -> Option<&'static str> {
     let lower_name = name.to_lowercase();
 
     if lower_name.contains("jap")
+        || lower_name.contains("jp")
         || lower_name.contains("(j)")
         || lower_name.contains("[j]")
         || lower_name.contains("ntsc-j")

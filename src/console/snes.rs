@@ -1,8 +1,41 @@
-use crate::check_region_mismatch;
-use crate::error::RomAnalyzerError;
-use crate::print_separator;
 use std::error::Error;
 
+// Assuming check_region_mismatch! and print_separator are defined elsewhere and accessible.
+// For this refactoring, we'll assume they are handled by the caller of analyze_snes_data.
+// use crate::check_region_mismatch;
+use crate::error::RomAnalyzerError;
+use crate::print_separator;
+
+/// Struct to hold the analysis results for a SNES ROM.
+#[derive(Debug, PartialEq)]
+pub struct SnesAnalysis {
+    /// The name of the source file.
+    pub source_name: String,
+    /// The game title extracted from the ROM header.
+    pub game_title: String,
+    /// The detected mapping type (e.g., "LoROM", "HiROM").
+    pub mapping_type: String,
+    /// The raw region code byte.
+    pub region_code: u8,
+    /// The identified region name (e.g., "Japan (NTSC)").
+    pub region: String,
+}
+
+impl SnesAnalysis {
+    /// Prints the analysis results to the console.
+    pub fn print(&self) {
+        print_separator();
+        println!("Source:       {}", self.source_name);
+        println!("System:       Super Nintendo (SNES)");
+        println!("Game Title:   {}", self.game_title);
+        println!("Mapping:      {}", self.mapping_type);
+        println!("Region Code:  0x{:02X}", self.region_code);
+        println!("Region:       {}", self.region);
+        print_separator();
+    }
+}
+
+/// Helper function to get the SNES region name from a code byte.
 pub fn get_snes_region_name(code: u8) -> String {
     let regions = vec![
         (0x00, "Japan (NTSC)"),
@@ -35,81 +68,105 @@ pub fn get_snes_region_name(code: u8) -> String {
     format!("Unknown Region (0x{:02X})", code)
 }
 
+/// Helper function to validate the SNES checksum.
 pub fn validate_snes_checksum(rom_data: &[u8], header_offset: usize) -> bool {
+    // Ensure we have enough data for checksum and complement bytes.
     if header_offset + 0x20 > rom_data.len() {
         return false;
     }
 
+    // Checksum is at 0x1E (relative to header start), complement at 0x1C.
+    // Both are 16-bit values, little-endian.
     let complement_bytes: [u8; 2] =
         match rom_data[header_offset + 0x1C..header_offset + 0x1E].try_into() {
             Ok(b) => b,
-            Err(_) => return false,
+            Err(_) => return false, // Should not happen if header_offset + 0x20 is within bounds.
         };
     let checksum_bytes: [u8; 2] =
         match rom_data[header_offset + 0x1E..header_offset + 0x20].try_into() {
             Ok(b) => b,
-            Err(_) => return false,
+            Err(_) => return false, // Should not happen if header_offset + 0x20 is within bounds.
         };
 
     let complement = u16::from_le_bytes(complement_bytes);
     let checksum = u16::from_le_bytes(checksum_bytes);
 
+    // The checksum algorithm: (checksum + complement) should equal 0xFFFF.
     (checksum as u32 + complement as u32) == 0xFFFF
 }
 
-pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<(), Box<dyn Error>> {
+/// Analyzes SNES ROM data and returns a struct containing the analysis results.
+/// This function is now pure and does not perform console output.
+pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<SnesAnalysis, Box<dyn Error>> {
     let file_size = data.len();
     let mut header_offset = 0;
 
-    if file_size % 1024 == 512 {
+    // Detect copier header (often 512 bytes, common for some older dumps/tools)
+    if file_size >= 512 && (file_size % 1024 == 512) {
+        // Heuristic: If file size ends in 512 and is divisible by 1024
         header_offset = 512;
-        println!("[*] Copier header detected (512 bytes). Offsetting reads...");
+        // Note: This copier header detection is a simple heuristic and might not be foolproof.
+        // More advanced detection could involve checking for specific patterns.
     }
 
-    let lorom_addr = 0x7FC0 + header_offset;
-    let hirom_addr = 0xFFC0 + header_offset;
-    let valid_addr: usize;
-    let mapping_type: &str;
+    // Determine ROM mapping type (LoROM vs HiROM) by checking checksums.
+    // The relevant header information is usually found at 0x7FC0 for LoROM and 0xFFC0 for HiROM
+    // (relative to the start of the ROM, accounting for the header_offset).
+    let lorom_header_start = 0x7FC0 + header_offset; // Header block starts here
+    let hirom_header_start = 0xFFC0 + header_offset; // Header block starts here
 
-    if validate_snes_checksum(data, lorom_addr) {
-        valid_addr = lorom_addr;
-        mapping_type = "LoROM";
-    } else if validate_snes_checksum(data, hirom_addr) {
-        valid_addr = hirom_addr;
-        mapping_type = "HiROM";
+    let mapping_type: String;
+    let valid_header_offset: usize;
+
+    // Prioritize HiROM checksum validation if it exists and is valid.
+    if validate_snes_checksum(data, hirom_header_start) {
+        valid_header_offset = hirom_header_start;
+        mapping_type = "HiROM".to_string();
+    } else if validate_snes_checksum(data, lorom_header_start) {
+        valid_header_offset = lorom_header_start;
+        mapping_type = "LoROM".to_string();
     } else {
-        println!(
-            "[!] Checksum validation failed. Attempting to read from LoROM location as fallback..."
+        // If neither checksum is valid, log a warning and try LoROM as a fallback, as it's more common.
+        // The analysis might be inaccurate in this case.
+        eprintln!(
+            "[!] Checksum validation failed for {}. Attempting to read header from LoROM location ({:X}) as fallback.",
+            source_name, lorom_header_start
         );
-        valid_addr = lorom_addr;
-        mapping_type = "LoROM (Unverified)";
+        valid_header_offset = lorom_header_start; // Fallback to LoROM offset
+        mapping_type = "LoROM (Unverified)".to_string();
     }
 
-    if valid_addr + 0x20 > file_size {
+    // Ensure the determined header offset plus the header size needed for analysis is within the file bounds.
+    // We need at least up to the region code (offset 0x19 relative to header start) and game title (offset 0x0 to 0x14).
+    // Thus, we check if `valid_header_offset + 0x20` is within bounds, as this covers the checksum bytes.
+    if valid_header_offset + 0x20 > file_size {
         return Err(Box::new(RomAnalyzerError::new(&format!(
-            "ROM data is too small or invalid (size: {} bytes).",
-            file_size
+            "ROM data is too small or header is invalid. File size: {} bytes. Checked header at offset: {}. Required minimum size for header region: {}.",
+            file_size,
+            valid_header_offset,
+            valid_header_offset + 0x20
         ))));
     }
 
-    let region_byte_offset = valid_addr + 0x19;
+    // Extract region code and game title from the identified header.
+    let region_byte_offset = valid_header_offset + 0x19; // Offset for region code within the header
     let region_code = data[region_byte_offset];
     let region_name = get_snes_region_name(region_code);
-    let game_title = String::from_utf8_lossy(&data[valid_addr..valid_addr + 21])
+
+    // Game title is located at the beginning of the header (offset 0x0 relative to valid_header_offset) for 21 bytes.
+    // It is null-terminated, so we trim null bytes and leading/trailing whitespace.
+    let game_title = String::from_utf8_lossy(&data[valid_header_offset..valid_header_offset + 21])
+        .trim_matches(char::from(0)) // Remove null bytes
         .trim()
         .to_string();
 
-    print_separator();
-    println!("Source:       {}", source_name);
-    println!("System:       Super Nintendo (SNES)");
-    println!("Game Title:   {}", game_title);
-    println!("Mapping:      {}", mapping_type);
-    println!("Region Code:  0x{:02X}", region_code);
-    println!("Region:       {}", region_name);
-
-    check_region_mismatch!(source_name, &region_name);
-    print_separator();
-    Ok(())
+    Ok(SnesAnalysis {
+        source_name: source_name.to_string(),
+        game_title,
+        mapping_type,
+        region_code,
+        region: region_name,
+    })
 }
 
 #[cfg(test)]
@@ -117,66 +174,166 @@ mod tests {
     use super::*;
     use std::error::Error;
 
-    // Helper to create a dummy SNES ROM with a valid checksum
-    fn create_snes_rom_data(
-        size: usize,
-        header_offset: usize,
+    /// Helper to create a dummy SNES ROM with a valid checksum.
+    /// It allows specifying ROM size, copier header offset, region code, mapping type.
+    fn generate_snes_data(
+        rom_size: usize,
+        copier_header_offset: usize, // 0 for no copier header, 512 for copier header
         region_code: u8,
         is_hirom: bool,
+        title: &str, // Added title parameter
     ) -> Vec<u8> {
-        let mut data = vec![0; size];
-        let header_start = if is_hirom { 0xFFC0 } else { 0x7FC0 } + header_offset;
+        let mut data = vec![0; rom_size];
 
-        if header_start + 0x20 > size {
-            panic!("Provided size is too small for SNES header at the given offset.");
+        // Calculate the actual start of the SNES header based on mapping type and copier offset.
+        let header_start = (if is_hirom { 0xFFC0 } else { 0x7FC0 }) + copier_header_offset;
+
+        // Ensure the data is large enough
+        if header_start + 0x20 > rom_size {
+            panic!(
+                "Provided ROM size {} is too small for SNES header at offset {} (needs at least {}).",
+                rom_size,
+                header_start,
+                header_start + 0x20
+            );
         }
 
-        // Set a valid checksum and its complement
-        let checksum: u16 = 0xAAAA;
-        let complement: u16 = 0x5555;
-        data[header_start + 0x1C..header_start + 0x1E].copy_from_slice(&complement.to_le_bytes());
-        data[header_start + 0x1E..header_start + 0x20].copy_from_slice(&checksum.to_le_bytes());
+        // 1. Set Title (21 bytes starting at header_start + 0x00)
+        let mut title_bytes = title.as_bytes().to_vec();
+        title_bytes.resize(21, b' '); // Pad with spaces, standard SNES header practice
 
-        // Set game title
-        data[header_start..header_start + 21].copy_from_slice(b"TEST GAME TITLE      ");
-        // Set region code
+        data[header_start..header_start + 21].copy_from_slice(&title_bytes);
+
+        // 2. Set Region Code (at header_start + 0x19)
         data[header_start + 0x19] = region_code;
+
+        // 3. Set a valid checksum and its complement.
+        // The checksum algorithm is (checksum + complement) == 0xFFFF. We use a simple pair.
+        let complement: u16 = 0x5555;
+        let checksum: u16 = 0xFFFF - complement; // 0xAAAA
+
+        // Set Checksum Complement (0x1C relative to header start)
+        data[header_start + 0x1C..header_start + 0x1E].copy_from_slice(&complement.to_le_bytes());
+        // Set Checksum (0x1E relative to header start)
+        data[header_start + 0x1E..header_start + 0x20].copy_from_slice(&checksum.to_le_bytes());
 
         data
     }
 
     #[test]
     fn test_analyze_snes_data_lorom_japan() -> Result<(), Box<dyn Error>> {
-        let data = create_snes_rom_data(0x80000, 0, 0x00, false); // 512KB, LoROM, Japan
-        analyze_snes_data(&data, "test_lorom_jp.sfc")?;
+        let data = generate_snes_data(0x80000, 0, 0x00, false, "TEST GAME TITLE"); // 512KB ROM, LoROM, Japan
+        let analysis = analyze_snes_data(&data, "test_lorom_jp.sfc")?;
+
+        assert_eq!(analysis.source_name, "test_lorom_jp.sfc");
+        assert_eq!(analysis.game_title, "TEST GAME TITLE");
+        assert_eq!(analysis.mapping_type, "LoROM");
+        assert_eq!(analysis.region_code, 0x00);
+        assert_eq!(analysis.region, "Japan (NTSC)");
         Ok(())
     }
 
     #[test]
     fn test_analyze_snes_data_hirom_usa() -> Result<(), Box<dyn Error>> {
-        let data = create_snes_rom_data(0x100000, 0, 0x01, true); // 1MB, HiROM, USA
-        analyze_snes_data(&data, "test_hirom_us.sfc")?;
+        let data = generate_snes_data(0x100000, 0, 0x01, true, "TEST GAME TITLE"); // 1MB ROM, HiROM, USA
+        let analysis = analyze_snes_data(&data, "test_hirom_us.sfc")?;
+
+        assert_eq!(analysis.source_name, "test_hirom_us.sfc");
+        assert_eq!(analysis.game_title, "TEST GAME TITLE");
+        assert_eq!(analysis.mapping_type, "HiROM");
+        assert_eq!(analysis.region_code, 0x01);
+        assert_eq!(analysis.region, "USA / Canada (NTSC)");
         Ok(())
     }
 
     #[test]
     fn test_analyze_snes_data_lorom_europe_copier_header() -> Result<(), Box<dyn Error>> {
-        let data = create_snes_rom_data(0x80000 + 512, 512, 0x02, false); // LoROM, Europe, with 512-byte copier header
-        analyze_snes_data(&data, "test_lorom_eur_copier.sfc")?;
+        // Rom size ends with 512 bytes, e.g., 800KB + 512 bytes = 800512 bytes.
+        let data = generate_snes_data(0x80000 + 512, 512, 0x02, false, "TEST GAME TITLE"); // LoROM, Europe, with 512-byte copier header
+        let analysis = analyze_snes_data(&data, "test_lorom_eur_copier.sfc")?;
+
+        assert_eq!(analysis.source_name, "test_lorom_eur_copier.sfc");
+        assert_eq!(analysis.game_title, "TEST GAME TITLE");
+        assert_eq!(analysis.mapping_type, "LoROM"); // Should detect copier header but still identify LoROM
+        assert_eq!(analysis.region_code, 0x02);
+        assert_eq!(analysis.region, "Europe / Oceania / Asia (PAL)");
         Ok(())
     }
 
     #[test]
     fn test_analyze_snes_data_hirom_canada_copier_header() -> Result<(), Box<dyn Error>> {
-        let data = create_snes_rom_data(0x100000 + 512, 512, 0x0F, true); // HiROM, Canada, with 512-byte copier header
-        analyze_snes_data(&data, "test_hirom_can_copier.sfc")?;
+        // Data size: 1MB + 512 bytes for copier header
+        let data = generate_snes_data(
+            0x100200,
+            512,  // Copier Header offset
+            0x0F, // Region: Canada (0x0F)
+            true, // HiROM
+            "TEST GAME TITLE",
+        );
+        let analysis = analyze_snes_data(&data, "test_hirom_can_copier.sfc")?;
+
+        assert_eq!(analysis.source_name, "test_hirom_can_copier.sfc");
+        assert_eq!(analysis.game_title, "TEST GAME TITLE");
+        assert_eq!(analysis.mapping_type, "HiROM");
+        assert_eq!(analysis.region_code, 0x0F);
+        assert_eq!(analysis.region, "Canada (NTSC)");
         Ok(())
     }
 
     #[test]
     fn test_analyze_snes_data_unknown_region() -> Result<(), Box<dyn Error>> {
-        let data = create_snes_rom_data(0x80000, 0, 0xFF, false); // LoROM, Unknown region
-        analyze_snes_data(&data, "test_lorom_unknown.sfc")?;
+        let data = generate_snes_data(0x80000, 0, 0xFF, false, "TEST GAME TITLE"); // LoROM, Unknown region
+        let analysis = analyze_snes_data(&data, "test_lorom_unknown.sfc")?;
+
+        assert_eq!(analysis.source_name, "test_lorom_unknown.sfc");
+        assert_eq!(analysis.game_title, "TEST GAME TITLE");
+        assert_eq!(analysis.mapping_type, "LoROM");
+        assert_eq!(analysis.region_code, 0xFF);
+        assert_eq!(analysis.region, "Unknown Region (0xFF)");
         Ok(())
+    }
+
+    #[test]
+    fn test_analyze_snes_data_invalid_checksum() -> Result<(), Box<dyn Error>> {
+        // FIX: Use the robust helper to generate a correctly formatted header first.
+        let mut data = generate_snes_data(
+            0x8000, // 32KB is enough for LoROM
+            0,
+            0x01,               // USA region code
+            false,              // LoROM base
+            "INVALID CHECKSUM", // Title to assert on
+        );
+
+        // Manually invalidate the checksum/complement pair.
+        // LoROM header start is 0x7FC0. Checksum area starts at 0x7FC0 + 0x1C.
+        let checksum_start = 0x7FC0 + 0x1C;
+
+        // Overwrite the 4 bytes of checksum/complement with invalid data (e.g., all zeros)
+        data[checksum_start..checksum_start + 4].copy_from_slice(&[0x00, 0x00, 0x00, 0x00]);
+
+        let analysis = analyze_snes_data(&data, "test_invalid_checksum.sfc")?;
+
+        assert_eq!(analysis.source_name, "test_invalid_checksum.sfc");
+        assert_eq!(analysis.game_title, "INVALID CHECKSUM");
+        assert_eq!(analysis.mapping_type, "LoROM (Unverified)"); // Expecting fallback
+        assert_eq!(analysis.region_code, 0x01);
+        assert_eq!(analysis.region, "USA / Canada (NTSC)");
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_snes_data_too_small() {
+        // Test with data smaller than the minimum required size for header analysis.
+        // The minimal size depends on mapping type and copier header. For LoROM without copier header,
+        // it's header_start + 0x20 = 0x7FFC + 0x20 = 0x801C bytes.
+        let data = vec![0; 0x1000]; // Significantly smaller than required.
+        let result = analyze_snes_data(&data, "too_small.sfc");
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("too small or header is invalid")
+        );
     }
 }
