@@ -4,9 +4,12 @@ use crate::check_region_mismatch;
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
 
+const INES_REGION_BYTE: usize = 9;
 const INES_REGION_MASK: u8 = 0x01;
 
+const NES2_REGION_BYTE: usize = 12;
 const NES2_REGION_MASK: u8 = 0x03;
+const NES2_FORMAT_BYTE: usize = 7;
 const NES2_FORMAT_MASK: u8 = 0x0C;
 const NES2_FORMAT_EXPECTED_VALUE: u8 = 0x08;
 
@@ -49,10 +52,10 @@ pub fn analyze_nes_data(data: &[u8], source_name: &str) -> Result<(), Box<dyn Er
         )));
     }
 
-    let mut region_byte = data[9]; // iNES region byte (in lowest order bit)
-    let nes2_format = data[7] & NES2_FORMAT_MASK == NES2_FORMAT_EXPECTED_VALUE;
+    let mut region_byte = data[INES_REGION_BYTE];
+    let nes2_format = data[NES2_FORMAT_BYTE] & NES2_FORMAT_MASK == NES2_FORMAT_EXPECTED_VALUE;
     if nes2_format {
-        region_byte = data[12]; // NES 2.0 region byte (in two lowest order bits)
+        region_byte = data[NES2_REGION_BYTE];
     }
     let region_name = get_nes_region_name(region_byte, nes2_format);
 
@@ -80,25 +83,58 @@ mod tests {
     use super::*;
     use std::error::Error;
 
-    #[test]
-    fn test_analyze_nes_data_ntsc() -> Result<(), Box<dyn Error>> {
-        // Minimal NES header for NTSC (flag_9_byte = 0x00)
+    fn generate_nes_data(region_byte: usize, region: u8) -> Result<Vec<u8>, Box<dyn Error>> {
+        // Generates a 16 byte ROM header.
+        // If the region_byte passed to the function is NES2.0 format,
+        // write the NES2.0 header identification to the header as well.
         let mut data = vec![0; 16];
         data[0..4].copy_from_slice(b"NES\x1a");
-        data[9] = 0x00; // NTSC region
+        if region_byte == INES_REGION_BYTE {
+            data[NES2_FORMAT_BYTE] |= NES2_FORMAT_EXPECTED_VALUE;
+        }
+        data[region_byte] = region;
+        Ok(data)
+    }
 
+    #[test]
+    fn test_analyze_ines_data_ntsc() -> Result<(), Box<dyn Error>> {
+        let data = generate_nes_data(INES_REGION_BYTE, 0x00)?; // NTSC region
         analyze_nes_data(&data, "test_rom_ntsc.nes")?;
         Ok(())
     }
 
     #[test]
-    fn test_analyze_nes_data_pal() -> Result<(), Box<dyn Error>> {
-        // Minimal NES header for PAL (flag_9_byte = 0x01)
-        let mut data = vec![0; 16];
-        data[0..4].copy_from_slice(b"NES\x1a");
-        data[9] = 0x01; // PAL region
+    fn test_analyze_ines_data_pal() -> Result<(), Box<dyn Error>> {
+        let data = generate_nes_data(INES_REGION_BYTE, 0x04)?; // PAL region
+        analyze_nes_data(&data, "test_rom_ntsc.nes")?;
+        Ok(())
+    }
 
-        analyze_nes_data(&data, "test_rom_pal.nes")?;
+    #[test]
+    fn test_analyze_nes2_data_ntsc() -> Result<(), Box<dyn Error>> {
+        let data = generate_nes_data(NES2_REGION_BYTE, 0x00)?; // NTSC region
+        analyze_nes_data(&data, "test_rom_ntsc.nes")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_nes2_data_pal() -> Result<(), Box<dyn Error>> {
+        let data = generate_nes_data(NES2_REGION_BYTE, 0x01)?; // PAL region
+        analyze_nes_data(&data, "test_rom_ntsc.nes")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_nes2_data_world() -> Result<(), Box<dyn Error>> {
+        let data = generate_nes_data(NES2_REGION_BYTE, 0x02)?; // Multi-region
+        analyze_nes_data(&data, "test_rom_ntsc.nes")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_nes2_data_dendy() -> Result<(), Box<dyn Error>> {
+        let data = generate_nes_data(NES2_REGION_BYTE, 0x03)?; // Dendy (Russia)
+        analyze_nes_data(&data, "test_rom_ntsc.nes")?;
         Ok(())
     }
 }
