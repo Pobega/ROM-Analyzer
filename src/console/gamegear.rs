@@ -1,7 +1,12 @@
 /// https://www.smspower.org/Development/ROMHeader
 use crate::print_separator;
 use crate::region::infer_region_from_filename;
+use log::debug;
 use std::error::Error;
+
+const POSSIBLE_HEADER_STARTS: &[usize] = &[0x7ff0, 0x3ff0, 0x1ff0];
+const REGION_CODE_OFFSET: usize = 0xf;
+const SEGA_HEADER_SIGNATURE: &[u8] = b"TMR SEGA";
 
 /// Struct to hold the analysis results for a Game Gear ROM.
 #[derive(Debug, PartialEq, Clone)]
@@ -10,6 +15,8 @@ pub struct GameGearAnalysis {
     pub region: String,
     /// The name of the source file.
     pub source_name: String,
+    /// If the region is found in the header, or inferred from the filename.
+    pub region_found: bool,
 }
 
 impl GameGearAnalysis {
@@ -19,27 +26,66 @@ impl GameGearAnalysis {
         println!("Source:       {}", self.source_name);
         println!("System:       Sega Game Gear");
         println!("Region:       {}", self.region);
-        println!("Note:         Detailed region information often not available in header.");
+        if !self.region_found {
+            println!("Note:         Region information not in ROM header, inferred from filename.");
+        }
         print_separator();
+    }
+}
+
+pub fn get_gamegear_region_name(region_byte: u8) -> &'static str {
+    let region_code_value: u8 = region_byte >> 4;
+    match region_code_value {
+        0x3 => "SMS Japan",
+        0x4 => "SMS Export",
+        0x5 => "GameGear Japan",
+        0x6 => "GameGear Export",
+        0x7 => "GameGear International",
+        _ => "Unknown",
     }
 }
 
 /// Analyzes Game Gear ROM data and returns a struct containing the analysis results.
 /// This function is now pure and does not perform console output.
 pub fn analyze_gamegear_data(
-    _data: &[u8],
+    data: &[u8],
     source_name: &str,
 ) -> Result<GameGearAnalysis, Box<dyn Error>> {
-    // Sega Game Gear ROMs, like Master System, often lack a standardized region code in the header.
-    // Region is typically inferred from filename.
+    // All headered Sega 8-bit ROMs should begin with 'TMR SEGA'
+    // This can exist at one of three locations; 0x1ff0, 0x3ff0 or 0x7ff0
+    let header_start_opt = POSSIBLE_HEADER_STARTS.iter().copied().find(|&offset| {
+        data.get(offset..offset + SEGA_HEADER_SIGNATURE.len())
+            .map_or(false, |s| s == SEGA_HEADER_SIGNATURE)
+    });
 
-    let region = infer_region_from_filename(source_name)
-        .map(|s| s.to_string())
-        .unwrap_or("Unknown".to_string());
+    let (mut region, mut region_found) = ("Unknown".to_string(), false);
+
+    if let Some(header_start) = header_start_opt {
+        debug!("Found signature at 0x{:x}", header_start);
+        if let Some(&region_byte) = data.get(header_start + REGION_CODE_OFFSET) {
+            let region_name = get_gamegear_region_name(region_byte);
+            if region_name != "Unknown" {
+                region = region_name.to_string();
+                region_found = true;
+            }
+        } else {
+            debug!(
+                "ROM too small to read region code from header at 0x{:x}",
+                header_start
+            );
+        }
+    }
+
+    if !region_found {
+        region = infer_region_from_filename(source_name)
+            .map(|s| s.to_string())
+            .unwrap_or("Unknown".to_string());
+    }
 
     Ok(GameGearAnalysis {
         region,
         source_name: source_name.to_string(),
+        region_found,
     })
 }
 
@@ -47,6 +93,101 @@ pub fn analyze_gamegear_data(
 mod tests {
     use super::*;
     use std::error::Error;
+
+    // Helper function to create dummy ROM data with a Game Gear header
+    fn create_rom_data_with_header(header_start: usize, region_code: u8) -> Vec<u8> {
+        let mut data = vec![0; 0x8000]; // Sufficiently large dummy data
+        if data.len() >= header_start + REGION_CODE_OFFSET + 1 {
+            // Write SEGA header signature
+            data[header_start..header_start + SEGA_HEADER_SIGNATURE.len()]
+                .copy_from_slice(SEGA_HEADER_SIGNATURE);
+            // Write region code
+            data[header_start + REGION_CODE_OFFSET] = region_code;
+        }
+        data
+    }
+
+    #[test]
+    fn test_analyze_gamegear_data_header_signature_present_region_byte_missing()
+    -> Result<(), Box<dyn Error>> {
+        let header_start = 0x7ff0;
+        let signature_len = SEGA_HEADER_SIGNATURE.len();
+        // Create a ROM that has the signature but is too short for the region byte
+        let mut data = vec![0; header_start + signature_len];
+        data[header_start..].copy_from_slice(SEGA_HEADER_SIGNATURE);
+
+        let analysis = analyze_gamegear_data(&data, "my_game_usa.gg")?;
+        assert_eq!(analysis.source_name, "my_game_usa.gg");
+        assert_eq!(analysis.region, "USA");
+        assert!(!analysis.region_found); // Region should be inferred, not found in header
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_gamegear_data_header_japan_0x7ff0() -> Result<(), Box<dyn Error>> {
+        // 0x50 >> 4 = 0x5 (GameGear Japan)
+        let data = create_rom_data_with_header(0x7ff0, 0x50);
+        let analysis = analyze_gamegear_data(&data, "test_rom.gg")?;
+        assert_eq!(analysis.source_name, "test_rom.gg");
+        assert_eq!(analysis.region, "GameGear Japan");
+        assert!(analysis.region_found);
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_gamegear_data_header_export_0x3ff0() -> Result<(), Box<dyn Error>> {
+        // 0x60 >> 4 = 0x6 (GameGear Export)
+        let data = create_rom_data_with_header(0x3ff0, 0x60);
+        let analysis = analyze_gamegear_data(&data, "test_rom.gg")?;
+        assert_eq!(analysis.source_name, "test_rom.gg");
+        assert_eq!(analysis.region, "GameGear Export");
+        assert!(analysis.region_found);
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_gamegear_data_header_international_0x1ff0() -> Result<(), Box<dyn Error>> {
+        // 0x70 >> 4 = 0x7 (GameGear International)
+        let data = create_rom_data_with_header(0x1ff0, 0x70);
+        let analysis = analyze_gamegear_data(&data, "test_rom.gg")?;
+        assert_eq!(analysis.source_name, "test_rom.gg");
+        assert_eq!(analysis.region, "GameGear International");
+        assert!(analysis.region_found);
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_gamegear_data_no_header_infer_from_filename() -> Result<(), Box<dyn Error>> {
+        let data = vec![0; 0x8000]; // No header
+        let analysis = analyze_gamegear_data(&data, "my_game_usa.gg")?;
+        assert_eq!(analysis.source_name, "my_game_usa.gg");
+        assert_eq!(analysis.region, "USA");
+        assert!(!analysis.region_found);
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_gamegear_data_header_unknown_region_infer_from_filename()
+    -> Result<(), Box<dyn Error>> {
+        // Header exists, but region code (0xF0 >> 4 = 0xF) is unknown, so it should infer from filename.
+        let data = create_rom_data_with_header(0x7ff0, 0xF0);
+        let analysis = analyze_gamegear_data(&data, "my_game_japan.gg")?;
+        assert_eq!(analysis.source_name, "my_game_japan.gg");
+        assert_eq!(analysis.region, "JAPAN");
+        assert!(!analysis.region_found); // Still false because the header didn't provide a known region
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_gamegear_data_get_region_name() {
+        assert_eq!(get_gamegear_region_name(0x30), "SMS Japan");
+        assert_eq!(get_gamegear_region_name(0x40), "SMS Export");
+        assert_eq!(get_gamegear_region_name(0x50), "GameGear Japan");
+        assert_eq!(get_gamegear_region_name(0x60), "GameGear Export");
+        assert_eq!(get_gamegear_region_name(0x70), "GameGear International");
+        assert_eq!(get_gamegear_region_name(0x00), "Unknown");
+        assert_eq!(get_gamegear_region_name(0xF0), "Unknown");
+    }
 
     #[test]
     fn test_analyze_gamegear_data_usa() -> Result<(), Box<dyn Error>> {
