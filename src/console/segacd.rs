@@ -1,5 +1,4 @@
 /// https://segaretro.org/ROM_header
-//use crate::check_region_mismatch;
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
 use log::error;
@@ -28,9 +27,6 @@ impl SegaCdAnalysis {
         println!("Region Code:  0x{:02X}", self.region_code);
         println!("Region:       {}", self.region);
 
-        // The check_region_mismatch macro is called here, assuming it's available in scope.
-        // It's important that the caller ensures this macro is accessible.
-        //check_region_mismatch!(self.source_name, &self.region);
         print_separator();
     }
 }

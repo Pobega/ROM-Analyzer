@@ -1,7 +1,6 @@
 /// https://gbdev.io/pandocs/The_Cartridge_Header.html
 use std::error::Error;
 
-//use crate::check_region_mismatch;
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
 
@@ -37,9 +36,6 @@ impl GbAnalysis {
         println!("Region Code:  0x{:02X}", self.destination_code);
         println!("Region:       {}", self.region);
 
-        // The check_region_mismatch macro is called here, assuming it's available in scope.
-        // It's important that the caller ensures this macro is accessible.
-        //check_region_mismatch!(self.source_name, &self.region);
         print_separator();
     }
 }

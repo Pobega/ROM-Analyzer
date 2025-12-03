@@ -1,9 +1,6 @@
 /// https://en64.shoutwiki.com/wiki/ROM
 use std::error::Error;
 
-// Assuming check_region_mismatch! and print_separator are defined elsewhere and accessible.
-// For this refactoring, we'll assume check_region_mismatch! is handled by the caller of analyze_n64_data.
-// use crate::check_region_mismatch;
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
 
@@ -27,9 +24,6 @@ impl N64Analysis {
         println!("Region:       {}", self.region);
         println!("Code:         {}", self.country_code);
 
-        // The check_region_mismatch macro is called here, assuming it's available in scope.
-        // It's important that the caller ensures this macro is accessible.
-        // Example: `if analysis.region != "Unknown Code" { check_region_mismatch!(analysis.source_name, &analysis.region); }`
         print_separator();
     }
 }

@@ -4,12 +4,10 @@ use log::{LevelFilter, error};
 use std::fs::{self, File};
 use std::path::Path;
 
-use rom_analyzer::RomAnalysisResult;
+use rom_analyzer::archive::chd::{ChdAnalysis, analyze_chd_file};
 use rom_analyzer::archive::zip::process_zip_file;
 use rom_analyzer::dispatcher::process_rom_data;
-
-use rom_analyzer::archive::chd::ChdAnalysis;
-use rom_analyzer::archive::chd::analyze_chd_file;
+use rom_analyzer::{RomAnalysisResult, check_region_mismatch};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -94,7 +92,10 @@ fn main() {
 
         let result = process_single_file(file_path, path, file_name);
         match result {
-            Ok(analysis) => analysis.print(),
+            Ok(analysis) => {
+                analysis.print();
+                check_region_mismatch!(analysis.source_name(), analysis.region());
+            }
             Err(e) => {
                 error!("Error processing file {}: {}", file_path, e);
                 had_error = true;

@@ -7,7 +7,7 @@ use std::error::Error;
 #[derive(Debug, PartialEq, Clone)]
 pub struct GameGearAnalysis {
     /// The identified region name (e.g., "USA").
-    pub region: Option<String>,
+    pub region: String,
     /// The name of the source file.
     pub source_name: String,
 }
@@ -18,11 +18,7 @@ impl GameGearAnalysis {
         print_separator();
         println!("Source:       {}", self.source_name);
         println!("System:       Sega Game Gear");
-
-        match &self.region {
-            Some(region) => println!("Region:       {}", region),
-            None => println!("Region:       Unknown (Filename inference failed)."),
-        }
+        println!("Region:       {}", self.region);
         println!("Note:         Detailed region information often not available in header.");
         print_separator();
     }
@@ -37,7 +33,9 @@ pub fn analyze_gamegear_data(
     // Sega Game Gear ROMs, like Master System, often lack a standardized region code in the header.
     // Region is typically inferred from filename.
 
-    let region = infer_region_from_filename(source_name).map(|s| s.to_string());
+    let region = infer_region_from_filename(source_name)
+        .map(|s| s.to_string())
+        .unwrap_or("Unknown".to_string());
 
     Ok(GameGearAnalysis {
         region,
@@ -55,7 +53,7 @@ mod tests {
         let data = vec![0; 0x100]; // Dummy data
         let analysis = analyze_gamegear_data(&data, "test_rom_usa.gg")?;
         assert_eq!(analysis.source_name, "test_rom_usa.gg");
-        assert_eq!(analysis.region, Some("USA".to_string()));
+        assert_eq!(analysis.region, "USA");
         Ok(())
     }
 
@@ -64,7 +62,7 @@ mod tests {
         let data = vec![0; 0x100]; // Dummy data
         let analysis = analyze_gamegear_data(&data, "test_rom_jp.gg")?;
         assert_eq!(analysis.source_name, "test_rom_jp.gg");
-        assert_eq!(analysis.region, Some("JAPAN".to_string()));
+        assert_eq!(analysis.region, "JAPAN");
         Ok(())
     }
 
@@ -73,7 +71,7 @@ mod tests {
         let data = vec![0; 0x100]; // Dummy data
         let analysis = analyze_gamegear_data(&data, "test_rom_eur.gg")?;
         assert_eq!(analysis.source_name, "test_rom_eur.gg");
-        assert_eq!(analysis.region, Some("EUROPE".to_string()));
+        assert_eq!(analysis.region, "EUROPE");
         Ok(())
     }
 
@@ -82,7 +80,7 @@ mod tests {
         let data = vec![0; 0x100]; // Dummy data
         let analysis = analyze_gamegear_data(&data, "test_rom.gg")?;
         assert_eq!(analysis.source_name, "test_rom.gg");
-        assert_eq!(analysis.region, None);
+        assert_eq!(analysis.region, "Unknown");
         Ok(())
     }
 }

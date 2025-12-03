@@ -2,12 +2,6 @@
 /// https://www.nesdev.org/wiki/NES_2.0
 use std::error::Error;
 
-// Assuming check_region_mismatch! and print_separator are defined elsewhere and accessible.
-// If they are local macros/functions, they might need to be moved or handled differently.
-// For this refactoring, we'll assume they are available in the scope where NesAnalysis is used.
-// The original code called check_region_mismatch! conditionally within analyze_nes_data.
-// For purity, this check will be removed from analyze_nes_data and should be handled by the caller.
-// use crate::check_region_mismatch;
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
 
@@ -45,10 +39,6 @@ impl NesAnalysis {
         } else {
             println!("iNES Flag 9:  0x{:02X}", self.region_byte_value);
         }
-        // Note: The original `check_region_mismatch!` macro was conditionally called.
-        // To keep `analyze_nes_data` pure, this check is now expected to be performed by the caller
-        // using the `NesAnalysis` struct returned by `analyze_nes_data`.
-        // Example: `if analysis.is_nes2_format { check_region_mismatch!(analysis.source_name, analysis.region); }`
         print_separator();
     }
 }

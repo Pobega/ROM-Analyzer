@@ -1,9 +1,6 @@
 /// https://problemkaputt.de/gbatek-gba-cartridge-header.htm
 use std::error::Error;
 
-// Assuming check_region_mismatch! and print_separator are defined elsewhere and accessible.
-// For this refactoring, we'll assume they are handled by the caller of analyze_gba_data.
-// use crate::check_region_mismatch;
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
 
@@ -33,9 +30,6 @@ impl GbaAnalysis {
         println!("Maker Code:   {}", self.maker_code);
         println!("Region:       {}", self.region);
 
-        // The check_region_mismatch macro is called here, assuming it's available in scope.
-        // It's important that the caller ensures this macro is accessible.
-        // For example: `if analysis.region != "Unknown" { check_region_mismatch!(analysis.source_name, &analysis.region); }`
         print_separator();
     }
 }

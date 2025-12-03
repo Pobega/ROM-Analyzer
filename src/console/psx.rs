@@ -1,4 +1,3 @@
-//use crate::check_region_mismatch;
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
 use std::error::Error;
@@ -29,9 +28,6 @@ impl PsxAnalysis {
             );
         }
 
-        // The check_region_mismatch macro is called here, assuming it's available in scope.
-        // It's important that the caller ensures this macro is accessible.
-        //check_region_mismatch!(self.source_name, self.region);
         print_separator();
     }
 }

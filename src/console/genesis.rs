@@ -1,5 +1,4 @@
 /// https://plutiedev.com/rom-header#system
-//use crate::check_region_mismatch;
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
 use log::error;
@@ -44,9 +43,6 @@ impl GenesisAnalysis {
         );
         println!("Region:       {}", self.region);
 
-        // The check_region_mismatch macro is called here, assuming it's available in scope.
-        // It's important that the caller ensures this macro is accessible.
-        // For example: `if analysis.region != "Unknown Code" { check_region_mismatch!(analysis.source_name, &analysis.region); }`
         print_separator();
     }
 }

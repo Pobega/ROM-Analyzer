@@ -61,4 +61,34 @@ impl RomAnalysisResult {
             RomAnalysisResult::SNES(a) => a.print(),
         }
     }
+
+    pub fn region(&self) -> &str {
+        match self {
+            RomAnalysisResult::GameGear(a) => &a.region,
+            RomAnalysisResult::GB(a) => &a.region,
+            RomAnalysisResult::GBA(a) => &a.region,
+            RomAnalysisResult::Genesis(a) => &a.region,
+            RomAnalysisResult::MasterSystem(a) => &a.region,
+            RomAnalysisResult::N64(a) => &a.region,
+            RomAnalysisResult::NES(a) => &a.region,
+            RomAnalysisResult::PSX(a) => &a.region,
+            RomAnalysisResult::SegaCD(a) => &a.region,
+            RomAnalysisResult::SNES(a) => &a.region,
+        }
+    }
+
+    pub fn source_name(&self) -> &str {
+        match self {
+            RomAnalysisResult::GameGear(a) => &a.source_name,
+            RomAnalysisResult::GB(a) => &a.source_name,
+            RomAnalysisResult::GBA(a) => &a.source_name,
+            RomAnalysisResult::Genesis(a) => &a.source_name,
+            RomAnalysisResult::MasterSystem(a) => &a.source_name,
+            RomAnalysisResult::N64(a) => &a.source_name,
+            RomAnalysisResult::NES(a) => &a.source_name,
+            RomAnalysisResult::PSX(a) => &a.source_name,
+            RomAnalysisResult::SegaCD(a) => &a.source_name,
+            RomAnalysisResult::SNES(a) => &a.source_name,
+        }
+    }
 }
