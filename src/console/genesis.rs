@@ -1,7 +1,8 @@
+/// Genesis header documentation referenced here:
 /// https://plutiedev.com/rom-header#system
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
-use log::error;
+use log::{error, info};
 use std::error::Error;
 
 const SYSTEM_TYPE_START: usize = 0x100;
@@ -33,15 +34,15 @@ impl GenesisAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
         print_separator();
-        println!("Source:       {}", self.source_name);
-        println!("System:       {}", self.console_name);
-        println!("Game Title (Domestic): {}", self.game_title_domestic);
-        println!("Game Title (Int.):   {}", self.game_title_international);
-        println!(
+        info!("Source:       {}", self.source_name);
+        info!("System:       {}", self.console_name);
+        info!("Game Title (Domestic): {}", self.game_title_domestic);
+        info!("Game Title (Int.):   {}", self.game_title_international);
+        info!(
             "Region Code:  0x{:02X} ('{}')",
             self.region_code_byte, self.region_code_byte as char
         );
-        println!("Region:       {}", self.region);
+        info!("Region:       {}", self.region);
 
         print_separator();
     }

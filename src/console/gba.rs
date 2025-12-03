@@ -1,5 +1,8 @@
+/// GBA header documentation referenced here:
 /// https://problemkaputt.de/gbatek-gba-cartridge-header.htm
 use std::error::Error;
+
+use log::info;
 
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
@@ -23,12 +26,12 @@ impl GbaAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
         print_separator();
-        println!("Source:       {}", self.source_name);
-        println!("System:       Game Boy Advance (GBA)");
-        println!("Game Title:   {}", self.game_title);
-        println!("Game Code:    {}", self.game_code);
-        println!("Maker Code:   {}", self.maker_code);
-        println!("Region:       {}", self.region);
+        info!("Source:       {}", self.source_name);
+        info!("System:       Game Boy Advance (GBA)");
+        info!("Game Title:   {}", self.game_title);
+        info!("Game Code:    {}", self.game_code);
+        info!("Maker Code:   {}", self.maker_code);
+        info!("Region:       {}", self.region);
 
         print_separator();
     }

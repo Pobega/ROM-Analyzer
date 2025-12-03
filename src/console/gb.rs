@@ -1,5 +1,8 @@
+/// Gameboy/Color header documentation referenced here:
 /// https://gbdev.io/pandocs/The_Cartridge_Header.html
 use std::error::Error;
+
+use log::info;
 
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
@@ -30,11 +33,11 @@ impl GbAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
         print_separator();
-        println!("Source:       {}", self.source_name);
-        println!("System:       {}", self.system_type);
-        println!("Game Title:   {}", self.game_title);
-        println!("Region Code:  0x{:02X}", self.destination_code);
-        println!("Region:       {}", self.region);
+        info!("Source:       {}", self.source_name);
+        info!("System:       {}", self.system_type);
+        info!("Game Title:   {}", self.game_title);
+        info!("Region Code:  0x{:02X}", self.destination_code);
+        info!("Region:       {}", self.region);
 
         print_separator();
     }

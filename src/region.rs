@@ -62,21 +62,21 @@ macro_rules! check_region_mismatch {
 
         if let (Some(inferred), Some(header)) = (inferred_region, header_region_norm) {
             if inferred != header {
-                println!("\n*** WARNING: POSSIBLE REGION MISMATCH! ***");
-                println!(
-                    "Source File:  {}",
+                ::log::error!(
+                    "\n*** WARNING: POSSIBLE REGION MISMATCH! ***\
+                     \nSource File:  {}\
+                     \nFilename suggests: {}\
+                     \nROM Header claims: {} (Header detail: '{}'\
+                     \nThe ROM may be mislabeled or have been patched.\
+                     \n*******************************************",
                     ::std::path::Path::new($source_name)
                         .file_name()
                         .unwrap_or_default()
-                        .to_string_lossy()
+                        .to_string_lossy(),
+                    inferred,
+                    header,
+                    $region_name
                 );
-                println!("Filename suggests: {}", inferred);
-                println!(
-                    "ROM Header claims: {} (Header detail: '{}')",
-                    header, $region_name
-                );
-                println!("The ROM may be mislabeled or have been patched.");
-                println!("*******************************************");
             }
         }
     };

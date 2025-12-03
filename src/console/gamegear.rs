@@ -1,8 +1,11 @@
+/// GameGear header documentation referenced here:
 /// https://www.smspower.org/Development/ROMHeader
+use std::error::Error;
+
+use log::{debug, info};
+
 use crate::print_separator;
 use crate::region::infer_region_from_filename;
-use log::debug;
-use std::error::Error;
 
 const POSSIBLE_HEADER_STARTS: &[usize] = &[0x7ff0, 0x3ff0, 0x1ff0];
 const REGION_CODE_OFFSET: usize = 0xf;
@@ -23,11 +26,11 @@ impl GameGearAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
         print_separator();
-        println!("Source:       {}", self.source_name);
-        println!("System:       Sega Game Gear");
-        println!("Region:       {}", self.region);
+        info!("Source:       {}", self.source_name);
+        info!("System:       Sega Game Gear");
+        info!("Region:       {}", self.region);
         if !self.region_found {
-            println!("Note:         Region information not in ROM header, inferred from filename.");
+            info!("Note:         Region information not in ROM header, inferred from filename.");
         }
         print_separator();
     }

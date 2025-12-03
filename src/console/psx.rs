@@ -1,3 +1,5 @@
+use log::info;
+
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
 use std::error::Error;
@@ -17,13 +19,13 @@ impl PsxAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
         print_separator();
-        println!("Source:       {}", self.source_name);
-        println!("System:       Sony PlayStation (PSX)");
-        println!("Region:       {}", self.region);
-        println!("Code:         {}", self.code);
+        info!("Source:       {}", self.source_name);
+        info!("System:       Sony PlayStation (PSX)");
+        info!("Region:       {}", self.region);
+        info!("Code:         {}", self.code);
 
         if self.code == "N/A" {
-            println!(
+            info!(
                 "Note: Executable prefix (SLUS/SLES/SLPS) not found in header area. Requires main data track (.bin or .iso)."
             );
         }
