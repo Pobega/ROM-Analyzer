@@ -1,5 +1,5 @@
-use std::error::Error;
 use log::error;
+use std::error::Error;
 
 // Assuming check_region_mismatch! and print_separator are defined elsewhere and accessible.
 // For this refactoring, we'll assume they are handled by the caller of analyze_snes_data.

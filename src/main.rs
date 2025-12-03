@@ -1,11 +1,11 @@
-use clap::{Parser, ArgAction};
+use clap::{ArgAction, Parser};
+use env_logger;
+use log::{LevelFilter, error};
 use std::fs::{self, File};
 use std::path::Path;
-use env_logger;
-use log::{error, LevelFilter};
 
-use rom_analyzer::archive::zip::process_zip_file;
 use rom_analyzer::RomAnalysisResult;
+use rom_analyzer::archive::zip::process_zip_file;
 use rom_analyzer::dispatcher::process_rom_data;
 
 use rom_analyzer::archive::chd::ChdAnalysis;
@@ -59,7 +59,7 @@ fn main() {
     let cli = Cli::parse();
 
     let default_log_level = match cli.verbose {
-        0 => LevelFilter::Warn,     // Default (no -v): Only show Warnings and Errors
+        0 => LevelFilter::Warn,  // Default (no -v): Only show Warnings and Errors
         1 => LevelFilter::Info,  // -v: Show Info messages
         2 => LevelFilter::Debug, // -vv: Show Debug messages
         _ => LevelFilter::Trace, // -vvv or more: Show everything (Trace)

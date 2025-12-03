@@ -1,8 +1,8 @@
 //use crate::check_region_mismatch;
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
-use std::error::Error;
 use log::error;
+use std::error::Error;
 
 /// Struct to hold the analysis results for a Sega cartridge (Genesis/Mega Drive) ROM.
 #[derive(Debug, PartialEq, Clone)]

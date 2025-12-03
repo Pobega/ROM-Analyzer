@@ -1,8 +1,8 @@
+use log::info;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use log::info;
 
 use chd::Chd;
 
@@ -25,7 +25,13 @@ pub fn analyze_chd_file(filepath: &Path, source_name: &str) -> Result<ChdAnalysi
     let hunk_count = chd.header().hunk_count();
     let hunk_size = chd.header().hunk_size();
 
-    info!("[+] Analyzing CHD file: {}", filepath.file_name().unwrap_or_else(|| filepath.as_ref()).to_string_lossy());
+    info!(
+        "[+] Analyzing CHD file: {}",
+        filepath
+            .file_name()
+            .unwrap_or_else(|| filepath.as_ref())
+            .to_string_lossy()
+    );
 
     let mut decompressed_data = Vec::new();
     decompressed_data.reserve_exact(

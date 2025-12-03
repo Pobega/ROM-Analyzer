@@ -1,9 +1,9 @@
 use std::error::Error;
 
+use crate::RomAnalysisResult;
 use crate::console::gamegear;
 use crate::console::gb;
 use crate::console::gba;
-use crate::RomAnalysisResult;
 use crate::console::mastersystem;
 use crate::console::n64;
 use crate::console::nes;

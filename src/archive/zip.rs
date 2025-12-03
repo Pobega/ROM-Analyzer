@@ -1,8 +1,8 @@
+use log::{error, info};
 use std::error::Error;
 use std::fs::File;
 use std::io::Read;
 use zip::ZipArchive;
-use log::{error, info};
 
 use crate::RomAnalysisResult;
 use crate::error::RomAnalyzerError;
