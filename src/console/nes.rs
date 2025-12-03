@@ -123,7 +123,7 @@ mod tests {
     /// Generates a 16-byte NES ROM header for testing.
     /// configures the header to be either iNES or NES 2.0 format,
     /// and sets the specified region value.
-    fn generate_nes_data(header_type: NesHeaderType, region_value: u8) -> Vec<u8> {
+    fn generate_nes_header(header_type: NesHeaderType, region_value: u8) -> Vec<u8> {
         let mut data = vec![0; 16];
         data[0..4].copy_from_slice(b"NES\x1a"); // Signature
 
@@ -149,7 +149,7 @@ mod tests {
     #[test]
     fn test_analyze_ines_data_ntsc() -> Result<(), Box<dyn Error>> {
         // iNES format, NTSC region (LSB is 0)
-        let data = generate_nes_data(NesHeaderType::Ines, 0x00);
+        let data = generate_nes_header(NesHeaderType::Ines, 0x00);
         let analysis = analyze_nes_data(&data, "test_rom_ntsc.nes")?;
 
         assert_eq!(analysis.source_name, "test_rom_ntsc.nes");
@@ -162,7 +162,7 @@ mod tests {
     #[test]
     fn test_analyze_ines_data_pal() -> Result<(), Box<dyn Error>> {
         // iNES format, PAL region (LSB is 1)
-        let data = generate_nes_data(NesHeaderType::Ines, 0x01);
+        let data = generate_nes_header(NesHeaderType::Ines, 0x01);
         let analysis = analyze_nes_data(&data, "test_rom_pal.nes")?;
 
         assert_eq!(analysis.source_name, "test_rom_pal.nes");
@@ -175,7 +175,7 @@ mod tests {
     #[test]
     fn test_analyze_nes2_data_ntsc() -> Result<(), Box<dyn Error>> {
         // NES 2.0 format, NTSC region (value 0)
-        let data = generate_nes_data(NesHeaderType::Nes2, 0x00);
+        let data = generate_nes_header(NesHeaderType::Nes2, 0x00);
         let analysis = analyze_nes_data(&data, "test_rom_nes2_ntsc.nes")?;
 
         assert_eq!(analysis.source_name, "test_rom_nes2_ntsc.nes");
@@ -188,7 +188,7 @@ mod tests {
     #[test]
     fn test_analyze_nes2_data_pal() -> Result<(), Box<dyn Error>> {
         // NES 2.0 format, PAL region (value 1)
-        let data = generate_nes_data(NesHeaderType::Nes2, 0x01);
+        let data = generate_nes_header(NesHeaderType::Nes2, 0x01);
         let analysis = analyze_nes_data(&data, "test_rom_nes2_pal.nes")?;
 
         assert_eq!(analysis.source_name, "test_rom_nes2_pal.nes");
@@ -201,7 +201,7 @@ mod tests {
     #[test]
     fn test_analyze_nes2_data_world() -> Result<(), Box<dyn Error>> {
         // NES 2.0 format, Multi-region (value 2)
-        let data = generate_nes_data(NesHeaderType::Nes2, 0x02);
+        let data = generate_nes_header(NesHeaderType::Nes2, 0x02);
         let analysis = analyze_nes_data(&data, "test_rom_nes2_world.nes")?;
 
         assert_eq!(analysis.source_name, "test_rom_nes2_world.nes");
@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn test_analyze_nes2_data_dendy() -> Result<(), Box<dyn Error>> {
         // NES 2.0 format, Dendy (Russia) (value 3)
-        let data = generate_nes_data(NesHeaderType::Nes2, 0x03);
+        let data = generate_nes_header(NesHeaderType::Nes2, 0x03);
         let analysis = analyze_nes_data(&data, "test_rom_nes2_dendy.nes")?;
 
         assert_eq!(analysis.source_name, "test_rom_nes2_dendy.nes");

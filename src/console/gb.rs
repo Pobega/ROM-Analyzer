@@ -5,11 +5,11 @@ use crate::error::RomAnalyzerError;
 use crate::print_separator;
 
 const GB_TITLE_START: usize = 0x134;
-const GB_TITLE_END: usize = 0x142;
+const GB_TITLE_END: usize = 0x143;
 const GB_DESTINATION: usize = 0x14A;
 
 const GBC_SYSTEM_TYPE: usize = 0x143;
-const GBC_TITLE_END: usize = 0x13E;
+const GBC_TITLE_END: usize = 0x13F;
 
 /// Struct to hold the analysis results for a Game Boy ROM.
 #[derive(Debug, PartialEq, Clone)]
@@ -176,12 +176,12 @@ mod tests {
     // Test that we properly read longer title names
     #[test]
     fn test_analyze_gb_long_title() -> Result<(), Box<dyn Error>> {
-        let data = generate_gb_header(0x00, 0x00, "LOOOOONG TITLE"); // Japan, GB
+        let data = generate_gb_header(0x00, 0x00, "LOOOOOONG TITLE"); // Japan, GB
         let analysis = analyze_gb_data(&data, "test_rom_jp.gbc")?;
 
         assert_eq!(analysis.source_name, "test_rom_jp.gbc");
         assert_eq!(analysis.system_type, "Game Boy (GB)");
-        assert_eq!(analysis.game_title, "LOOOOONG TITLE");
+        assert_eq!(analysis.game_title, "LOOOOOONG TITLE");
         assert_eq!(analysis.destination_code, 0x00);
         assert_eq!(analysis.region, "Japan");
         Ok(())
@@ -194,7 +194,7 @@ mod tests {
 
         assert_eq!(analysis.source_name, "test_rom_jp.gbc");
         assert_eq!(analysis.system_type, "Game Boy Color (GBC)");
-        assert_eq!(analysis.game_title, "LOONG TITL");
+        assert_eq!(analysis.game_title, "LOONG TITLE");
         assert_eq!(analysis.destination_code, 0x00);
         assert_eq!(analysis.region, "Japan");
         Ok(())

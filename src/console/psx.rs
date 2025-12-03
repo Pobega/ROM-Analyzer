@@ -46,15 +46,9 @@ pub fn analyze_psx_data(data: &[u8], source_name: &str) -> Result<PsxAnalysis, B
         )));
     }
 
-    // Convert a slice to uppercase for case-insensitive matching.
-    // This creates a new Vec<u8>, so it's not a zero-cost operation, but necessary for comparison.
-    let data_sample_upper = data[..check_size]
-        .iter()
-        .map(|&b| b.to_ascii_uppercase())
-        .collect::<Vec<u8>>();
+    let data_sample = &data[..check_size];
 
     let region_map = [
-        // Prefix bytes, Region name
         ("SLUS".as_bytes(), "North America (NTSC-U)"),
         ("SLES".as_bytes(), "Europe (PAL)"),
         ("SLPS".as_bytes(), "Japan (NTSC-J)"),
@@ -65,9 +59,9 @@ pub fn analyze_psx_data(data: &[u8], source_name: &str) -> Result<PsxAnalysis, B
 
     for (prefix, region) in region_map.iter() {
         // Use windows to check for the prefix anywhere in the sample.
-        if data_sample_upper
+        if data_sample
             .windows(prefix.len())
-            .any(|window| window == *prefix)
+            .any(|window| window.eq_ignore_ascii_case(prefix))
         {
             found_code = String::from_utf8_lossy(prefix).to_string();
             region_name = region;

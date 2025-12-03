@@ -217,7 +217,7 @@ mod tests {
 
     /// Helper to create a dummy SNES ROM with a valid checksum.
     /// It allows specifying ROM size, copier header offset, region code, mapping type.
-    fn generate_snes_data(
+    fn generate_snes_header(
         rom_size: usize,
         copier_header_offset: usize,
         region_code: u8,
@@ -271,7 +271,7 @@ mod tests {
 
     #[test]
     fn test_analyze_snes_data_lorom_japan() -> Result<(), Box<dyn Error>> {
-        let data = generate_snes_data(0x80000, 0, 0x00, false, "TEST GAME TITLE", None); // 512KB ROM, LoROM, Japan
+        let data = generate_snes_header(0x80000, 0, 0x00, false, "TEST GAME TITLE", None); // 512KB ROM, LoROM, Japan
         let analysis = analyze_snes_data(&data, "test_lorom_jp.sfc")?;
 
         assert_eq!(analysis.source_name, "test_lorom_jp.sfc");
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_analyze_snes_data_hirom_usa() -> Result<(), Box<dyn Error>> {
-        let data = generate_snes_data(0x100000, 0, 0x01, true, "TEST GAME TITLE", None); // 1MB ROM, HiROM, USA
+        let data = generate_snes_header(0x100000, 0, 0x01, true, "TEST GAME TITLE", None); // 1MB ROM, HiROM, USA
         let analysis = analyze_snes_data(&data, "test_hirom_us.sfc")?;
 
         assert_eq!(analysis.source_name, "test_hirom_us.sfc");
@@ -298,7 +298,7 @@ mod tests {
     #[test]
     fn test_analyze_snes_data_lorom_europe_copier_header() -> Result<(), Box<dyn Error>> {
         // Rom size ends with 512 bytes, e.g., 800KB + 512 bytes = 800512 bytes.
-        let data = generate_snes_data(0x80000 + 512, 512, 0x02, false, "TEST GAME TITLE", None); // LoROM, Europe, with 512-byte copier header
+        let data = generate_snes_header(0x80000 + 512, 512, 0x02, false, "TEST GAME TITLE", None); // LoROM, Europe, with 512-byte copier header
         let analysis = analyze_snes_data(&data, "test_lorom_eur_copier.sfc")?;
 
         assert_eq!(analysis.source_name, "test_lorom_eur_copier.sfc");
@@ -312,7 +312,7 @@ mod tests {
     #[test]
     fn test_analyze_snes_data_hirom_canada_copier_header() -> Result<(), Box<dyn Error>> {
         // Data size: 1MB + 512 bytes for copier header
-        let data = generate_snes_data(
+        let data = generate_snes_header(
             0x100200,
             512,  // Copier Header offset
             0x0F, // Region: Canada (0x0F)
@@ -332,7 +332,7 @@ mod tests {
 
     #[test]
     fn test_analyze_snes_data_unknown_region() -> Result<(), Box<dyn Error>> {
-        let data = generate_snes_data(0x80000, 0, 0xFF, false, "TEST GAME TITLE", None); // LoROM, Unknown region
+        let data = generate_snes_header(0x80000, 0, 0xFF, false, "TEST GAME TITLE", None); // LoROM, Unknown region
         let analysis = analyze_snes_data(&data, "test_lorom_unknown.sfc")?;
 
         assert_eq!(analysis.source_name, "test_lorom_unknown.sfc");
@@ -346,7 +346,7 @@ mod tests {
     #[test]
     fn test_analyze_snes_data_invalid_checksum() -> Result<(), Box<dyn Error>> {
         // FIX: Use the robust helper to generate a correctly formatted header first.
-        let mut data = generate_snes_data(
+        let mut data = generate_snes_header(
             0x8000, // 32KB is enough for LoROM
             0,
             0x01,               // USA region code
@@ -390,7 +390,8 @@ mod tests {
 
     #[test]
     fn test_analyze_snes_data_hirom_checksum_map_mode_consistent() -> Result<(), Box<dyn Error>> {
-        let data = generate_snes_data(0x100000, 0, 0x01, true, "TEST HIROM CONSISTENT", Some(0x21)); // HiROM, USA, HiROM Map Mode
+        let data =
+            generate_snes_header(0x100000, 0, 0x01, true, "TEST HIROM CONSISTENT", Some(0x21)); // HiROM, USA, HiROM Map Mode
         let analysis = analyze_snes_data(&data, "test_hirom_consistent.sfc")?;
 
         assert_eq!(analysis.mapping_type, "HiROM");
@@ -400,7 +401,8 @@ mod tests {
 
     #[test]
     fn test_analyze_snes_data_lorom_checksum_map_mode_consistent() -> Result<(), Box<dyn Error>> {
-        let data = generate_snes_data(0x80000, 0, 0x00, false, "TEST LOROM CONSISTENT", Some(0x20)); // LoROM, Japan, LoROM Map Mode
+        let data =
+            generate_snes_header(0x80000, 0, 0x00, false, "TEST LOROM CONSISTENT", Some(0x20)); // LoROM, Japan, LoROM Map Mode
         let analysis = analyze_snes_data(&data, "test_lorom_consistent.sfc")?;
 
         assert_eq!(analysis.mapping_type, "LoROM");
@@ -410,7 +412,7 @@ mod tests {
 
     #[test]
     fn test_analyze_snes_data_hirom_checksum_map_mode_inconsistent() -> Result<(), Box<dyn Error>> {
-        let data = generate_snes_data(
+        let data = generate_snes_header(
             0x100000,
             0,
             0x01,
@@ -427,7 +429,7 @@ mod tests {
 
     #[test]
     fn test_analyze_snes_data_lorom_checksum_map_mode_inconsistent() -> Result<(), Box<dyn Error>> {
-        let data = generate_snes_data(
+        let data = generate_snes_header(
             0x80000,
             0,
             0x00,
@@ -445,7 +447,7 @@ mod tests {
     #[test]
     fn test_analyze_snes_data_no_valid_checksum_map_mode_consistent_hirom_only()
     -> Result<(), Box<dyn Error>> {
-        let mut data = generate_snes_data(
+        let mut data = generate_snes_header(
             0x100000,
             0,
             0x01,
@@ -469,7 +471,7 @@ mod tests {
     #[test]
     fn test_analyze_snes_data_no_valid_checksum_map_mode_consistent_lorom_only()
     -> Result<(), Box<dyn Error>> {
-        let mut data = generate_snes_data(
+        let mut data = generate_snes_header(
             0x80000,
             0,
             0x00,

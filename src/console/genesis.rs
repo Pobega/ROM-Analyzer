@@ -5,7 +5,7 @@ use log::error;
 use std::error::Error;
 
 const SYSTEM_TYPE_START: usize = 0x100;
-const SYSTEM_TYPE_END: usize = 0x115;
+const SYSTEM_TYPE_END: usize = 0x110;
 const DOMESTIC_TITLE_START: usize = 0x120;
 const DOMESTIC_TITLE_END: usize = 0x150;
 const INTL_TITLE_START: usize = 0x150;
@@ -141,7 +141,7 @@ mod tests {
     ) -> Vec<u8> {
         let mut data = vec![0; 0x200]; // Ensure enough space for header and region byte.
 
-        // Console Name/Signature (20 bytes at 0x100)
+        // Console Name/Signature (16 bytes at 0x100)
         data[SYSTEM_TYPE_START..SYSTEM_TYPE_END].copy_from_slice(console_sig);
 
         // Game Title - Domestic (32 bytes, null-terminated)
@@ -162,12 +162,8 @@ mod tests {
 
     #[test]
     fn test_analyze_genesis_data_usa() -> Result<(), Box<dyn Error>> {
-        let data = generate_genesis_header(
-            b"SEGA MEGA DRIVE      ",
-            b'U',
-            "DOMESTIC US",
-            "INTERNATIONAL US",
-        );
+        let data =
+            generate_genesis_header(b"SEGA MEGA DRIVE ", b'U', "DOMESTIC US", "INTERNATIONAL US");
         let analysis = analyze_genesis_data(&data, "test_rom_us.md")?;
 
         assert_eq!(analysis.source_name, "test_rom_us.md");
@@ -181,12 +177,8 @@ mod tests {
 
     #[test]
     fn test_analyze_genesis_data_japan() -> Result<(), Box<dyn Error>> {
-        let data = generate_genesis_header(
-            b"SEGA MEGA DRIVE      ",
-            b'J',
-            "DOMESTIC JP",
-            "INTERNATIONAL JP",
-        );
+        let data =
+            generate_genesis_header(b"SEGA MEGA DRIVE ", b'J', "DOMESTIC JP", "INTERNATIONAL JP");
         let analysis = analyze_genesis_data(&data, "test_rom_jp.md")?;
 
         assert_eq!(analysis.source_name, "test_rom_jp.md");
@@ -201,7 +193,7 @@ mod tests {
     #[test]
     fn test_analyze_genesis_data_europe() -> Result<(), Box<dyn Error>> {
         let data = generate_genesis_header(
-            b"SEGA MEGA DRIVE      ",
+            b"SEGA MEGA DRIVE ",
             b'E',
             "DOMESTIC EUR",
             "INTERNATIONAL EUR",
@@ -219,8 +211,7 @@ mod tests {
 
     #[test]
     fn test_analyze_genesis_data_genesis_signature() -> Result<(), Box<dyn Error>> {
-        let data =
-            generate_genesis_header(b"SEGA GENESIS         ", b'U', "GENESIS DOM", "GENESIS INT");
+        let data = generate_genesis_header(b"SEGA GENESIS    ", b'U', "GENESIS DOM", "GENESIS INT");
         let analysis = analyze_genesis_data(&data, "test_rom_genesis.gen")?;
 
         assert_eq!(analysis.source_name, "test_rom_genesis.gen");
@@ -233,7 +224,7 @@ mod tests {
     #[test]
     fn test_analyze_genesis_data_unknown_region() -> Result<(), Box<dyn Error>> {
         let data = generate_genesis_header(
-            b"SEGA MEGA DRIVE      ",
+            b"SEGA MEGA DRIVE ",
             b'Z',
             "DOMESTIC UNK",
             "INTERNATIONAL UNK",
