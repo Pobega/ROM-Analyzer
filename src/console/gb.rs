@@ -65,7 +65,11 @@ pub fn analyze_gb_data(data: &[u8], source_name: &str) -> Result<GbAnalysis, Box
         "Game Boy (GB)"
     };
 
-    let title_end = if system_type == "Game Boy Color (GBC)" { GBC_TITLE_END } else { GB_TITLE_END };
+    let title_end = if system_type == "Game Boy Color (GBC)" {
+        GBC_TITLE_END
+    } else {
+        GB_TITLE_END
+    };
     let game_title = String::from_utf8_lossy(&data[GB_TITLE_START..title_end])
         .trim_matches(char::from(0))
         .to_string();
@@ -106,7 +110,7 @@ mod tests {
             title_length = 15;
         }
         title_bytes.resize(title_length, 0);
-        data[GB_TITLE_START..(GB_TITLE_START+title_length)].copy_from_slice(&title_bytes);
+        data[GB_TITLE_START..(GB_TITLE_START + title_length)].copy_from_slice(&title_bytes);
 
         data[GB_DESTINATION] = destination_code;
 

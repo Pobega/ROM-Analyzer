@@ -4,9 +4,17 @@ use crate::print_separator;
 use log::error;
 use std::error::Error;
 
+const SYSTEM_TYPE_START: usize = 0x100;
+const SYSTEM_TYPE_END: usize = 0x115;
+const DOMESTIC_TITLE_START: usize = 0x120;
+const DOMESTIC_TITLE_END: usize = 0x150;
+const INTL_TITLE_START: usize = 0x150;
+const INTL_TITLE_END: usize = 0x180;
+const REGION_CODE_BYTE: usize = 0x1F0;
+
 /// Struct to hold the analysis results for a Sega cartridge (Genesis/Mega Drive) ROM.
 #[derive(Debug, PartialEq, Clone)]
-pub struct SegaCartridgeAnalysis {
+pub struct GenesisAnalysis {
     /// The detected console name (e.g., "SEGA MEGA DRIVE", "SEGA GENESIS").
     pub console_name: String,
     /// The domestic game title extracted from the ROM header.
@@ -21,7 +29,7 @@ pub struct SegaCartridgeAnalysis {
     pub source_name: String,
 }
 
-impl SegaCartridgeAnalysis {
+impl GenesisAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
         print_separator();
@@ -44,10 +52,10 @@ impl SegaCartridgeAnalysis {
 
 /// Analyzes Sega cartridge ROM data and returns a struct containing the analysis results.
 /// This function is now pure and does not perform console output.
-pub fn analyze_sega_cartridge_data(
+pub fn analyze_genesis_data(
     data: &[u8],
     source_name: &str,
-) -> Result<SegaCartridgeAnalysis, Box<dyn Error>> {
+) -> Result<GenesisAnalysis, Box<dyn Error>> {
     // Sega Genesis/Mega Drive header is at offset 0x100. It's 256 bytes long.
     // The region byte is at offset 0x1F0 (relative to ROM start).
     const HEADER_SIZE: usize = 0x200; // Minimum size to contain the header and region byte.
@@ -59,11 +67,9 @@ pub fn analyze_sega_cartridge_data(
         ))));
     }
 
-    let header_start = 0x100;
-
     // Verify Sega header signature "SEGA MEGA DRIVE " or "SEGA GENESIS"
     // This is not strictly necessary for region analysis but good for validation.
-    let console_name_bytes = &data[header_start + 0x0..header_start + 0x10];
+    let console_name_bytes = &data[SYSTEM_TYPE_START..SYSTEM_TYPE_END];
     let console_name = String::from_utf8_lossy(console_name_bytes)
         .trim_matches(char::from(0))
         .trim()
@@ -73,32 +79,26 @@ pub fn analyze_sega_cartridge_data(
     // We'll proceed with analysis but log a warning if the console name is unexpected.
     let is_valid_signature = console_name == "SEGA MEGA DRIVE" || console_name == "SEGA GENESIS";
     if !is_valid_signature {
-        // Print a warning to stderr or a dedicated log, not stdout for analysis results.
-        // For now, we'll keep it as a print, but this might need refinement based on how logs are handled.
         error!(
-            "[!] Warning: Unexpected Sega header signature for {} at 0x100. Found: '{}'",
-            source_name, console_name
+            "[!] Warning: Unexpected Sega header signature for {} at 0x{:x}. Found: '{}'",
+            source_name, SYSTEM_TYPE_START, console_name
         );
-        // If it's not a recognized Sega console name, we might not be able to reliably extract titles or region.
-        // However, the region byte at 0x1F0 is often present even with slightly different headers.
     }
 
-    // Game Title - Domestic (32 bytes, null-terminated)
+    // Game Title - Domestic (48 bytes, null-terminated)
     let game_title_domestic =
-        String::from_utf8_lossy(&data[header_start + 0x10..header_start + 0x30])
+        String::from_utf8_lossy(&data[DOMESTIC_TITLE_START..DOMESTIC_TITLE_END])
             .trim_matches(char::from(0))
             .trim()
             .to_string();
-
-    // Game Title - International (32 bytes, null-terminated)
-    let game_title_international =
-        String::from_utf8_lossy(&data[header_start + 0x30..header_start + 0x50])
-            .trim_matches(char::from(0))
-            .trim()
-            .to_string();
+    // Game Title - International (48 bytes, null-terminated)
+    let game_title_international = String::from_utf8_lossy(&data[INTL_TITLE_START..INTL_TITLE_END])
+        .trim_matches(char::from(0))
+        .trim()
+        .to_string();
 
     // Region Code byte is at offset 0x1F0 (which is 0xF0 relative to header_start)
-    let region_code_byte = data[0x1F0];
+    let region_code_byte = data[REGION_CODE_BYTE];
 
     let region_name = match region_code_byte {
         b'J' => "Japan (NTSC-J)",
@@ -117,7 +117,7 @@ pub fn analyze_sega_cartridge_data(
     }
     .to_string();
 
-    Ok(SegaCartridgeAnalysis {
+    Ok(GenesisAnalysis {
         console_name,
         game_title_domestic,
         game_title_international,
@@ -133,7 +133,7 @@ mod tests {
     use std::error::Error;
 
     /// Helper function to generate a minimal Sega cartridge header for testing.
-    fn generate_sega_header(
+    fn generate_genesis_header(
         console_sig: &[u8],
         region_byte: u8,
         domestic_title: &str,
@@ -141,30 +141,34 @@ mod tests {
     ) -> Vec<u8> {
         let mut data = vec![0; 0x200]; // Ensure enough space for header and region byte.
 
-        // Console Name/Signature (16 bytes at 0x100)
-        data[0x100..0x110].copy_from_slice(console_sig);
+        // Console Name/Signature (20 bytes at 0x100)
+        data[SYSTEM_TYPE_START..SYSTEM_TYPE_END].copy_from_slice(console_sig);
 
         // Game Title - Domestic (32 bytes, null-terminated)
         let mut domestic_title_bytes = domestic_title.as_bytes().to_vec();
-        domestic_title_bytes.resize(32, 0);
-        data[0x110..0x130].copy_from_slice(&domestic_title_bytes);
+        domestic_title_bytes.resize(48, 0);
+        data[DOMESTIC_TITLE_START..DOMESTIC_TITLE_END].copy_from_slice(&domestic_title_bytes);
 
         // Game Title - International (32 bytes, null-terminated)
         let mut international_title_bytes = international_title.as_bytes().to_vec();
-        international_title_bytes.resize(32, 0);
-        data[0x130..0x150].copy_from_slice(&international_title_bytes);
+        international_title_bytes.resize(48, 0);
+        data[INTL_TITLE_START..INTL_TITLE_END].copy_from_slice(&international_title_bytes);
 
         // Region Code byte at 0x1F0
-        data[0x1F0] = region_byte;
+        data[REGION_CODE_BYTE] = region_byte;
 
         data
     }
 
     #[test]
-    fn test_analyze_sega_cartridge_data_usa() -> Result<(), Box<dyn Error>> {
-        let data =
-            generate_sega_header(b"SEGA MEGA DRIVE ", b'U', "DOMESTIC US", "INTERNATIONAL US");
-        let analysis = analyze_sega_cartridge_data(&data, "test_rom_us.md")?;
+    fn test_analyze_genesis_data_usa() -> Result<(), Box<dyn Error>> {
+        let data = generate_genesis_header(
+            b"SEGA MEGA DRIVE      ",
+            b'U',
+            "DOMESTIC US",
+            "INTERNATIONAL US",
+        );
+        let analysis = analyze_genesis_data(&data, "test_rom_us.md")?;
 
         assert_eq!(analysis.source_name, "test_rom_us.md");
         assert_eq!(analysis.console_name, "SEGA MEGA DRIVE");
@@ -176,10 +180,14 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_sega_cartridge_data_japan() -> Result<(), Box<dyn Error>> {
-        let data =
-            generate_sega_header(b"SEGA MEGA DRIVE ", b'J', "DOMESTIC JP", "INTERNATIONAL JP");
-        let analysis = analyze_sega_cartridge_data(&data, "test_rom_jp.md")?;
+    fn test_analyze_genesis_data_japan() -> Result<(), Box<dyn Error>> {
+        let data = generate_genesis_header(
+            b"SEGA MEGA DRIVE      ",
+            b'J',
+            "DOMESTIC JP",
+            "INTERNATIONAL JP",
+        );
+        let analysis = analyze_genesis_data(&data, "test_rom_jp.md")?;
 
         assert_eq!(analysis.source_name, "test_rom_jp.md");
         assert_eq!(analysis.console_name, "SEGA MEGA DRIVE");
@@ -191,14 +199,14 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_sega_cartridge_data_europe() -> Result<(), Box<dyn Error>> {
-        let data = generate_sega_header(
-            b"SEGA MEGA DRIVE ",
+    fn test_analyze_genesis_data_europe() -> Result<(), Box<dyn Error>> {
+        let data = generate_genesis_header(
+            b"SEGA MEGA DRIVE      ",
             b'E',
             "DOMESTIC EUR",
             "INTERNATIONAL EUR",
         );
-        let analysis = analyze_sega_cartridge_data(&data, "test_rom_eur.md")?;
+        let analysis = analyze_genesis_data(&data, "test_rom_eur.md")?;
 
         assert_eq!(analysis.source_name, "test_rom_eur.md");
         assert_eq!(analysis.console_name, "SEGA MEGA DRIVE");
@@ -210,9 +218,10 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_sega_cartridge_data_genesis_signature() -> Result<(), Box<dyn Error>> {
-        let data = generate_sega_header(b"SEGA GENESIS    ", b'U', "GENESIS DOM", "GENESIS INT");
-        let analysis = analyze_sega_cartridge_data(&data, "test_rom_genesis.gen")?;
+    fn test_analyze_genesis_data_genesis_signature() -> Result<(), Box<dyn Error>> {
+        let data =
+            generate_genesis_header(b"SEGA GENESIS         ", b'U', "GENESIS DOM", "GENESIS INT");
+        let analysis = analyze_genesis_data(&data, "test_rom_genesis.gen")?;
 
         assert_eq!(analysis.source_name, "test_rom_genesis.gen");
         assert_eq!(analysis.console_name, "SEGA GENESIS");
@@ -222,14 +231,14 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_sega_cartridge_data_unknown_region() -> Result<(), Box<dyn Error>> {
-        let data = generate_sega_header(
-            b"SEGA MEGA DRIVE ",
+    fn test_analyze_genesis_data_unknown_region() -> Result<(), Box<dyn Error>> {
+        let data = generate_genesis_header(
+            b"SEGA MEGA DRIVE      ",
             b'Z',
             "DOMESTIC UNK",
             "INTERNATIONAL UNK",
         );
-        let analysis = analyze_sega_cartridge_data(&data, "test_rom_unknown.md")?;
+        let analysis = analyze_genesis_data(&data, "test_rom_unknown.md")?;
 
         assert_eq!(analysis.source_name, "test_rom_unknown.md");
         assert_eq!(analysis.region, "Unknown Code");
@@ -238,10 +247,10 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_sega_cartridge_data_too_small() {
+    fn test_analyze_genesis_data_too_small() {
         // Test with data smaller than the minimum required size for analysis.
         let data = vec![0; 100]; // Smaller than 0x200
-        let result = analyze_sega_cartridge_data(&data, "too_small.md");
+        let result = analyze_genesis_data(&data, "too_small.md");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("too small"));
     }
