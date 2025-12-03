@@ -4,6 +4,13 @@ use std::error::Error;
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
 
+const GB_TITLE_START: usize = 0x134;
+const GB_TITLE_END: usize = 0x142;
+const GB_DESTINATION: usize = 0x14A;
+
+const GBC_SYSTEM_TYPE: usize = 0x143;
+const GBC_TITLE_END: usize = 0x13E;
+
 /// Struct to hold the analysis results for a Game Boy ROM.
 #[derive(Debug, PartialEq, Clone)]
 pub struct GbAnalysis {
@@ -51,21 +58,19 @@ pub fn analyze_gb_data(data: &[u8], source_name: &str) -> Result<GbAnalysis, Box
     }
 
     // System type is determined by a specific byte in the header.
-    // 0x143: Double check the bits to ensure it's a GBC
     // 0x80 or 0xC0 indicates GBC
-    let system_type = if data[0x143] == 0x80 || data[0x143] == 0xC0 {
+    let system_type = if data[GBC_SYSTEM_TYPE] == 0x80 || data[GBC_SYSTEM_TYPE] == 0xC0 {
         "Game Boy Color (GBC)"
     } else {
         "Game Boy (GB)"
     };
 
-    // Game title is at offset 0x134 to 0x13E (11 bytes for GBC), null-terminated.
-    let game_title = String::from_utf8_lossy(&data[0x134..0x13F])
-        .trim_matches(char::from(0)) // Remove null bytes
+    let title_end = if system_type == "Game Boy Color (GBC)" { GBC_TITLE_END } else { GB_TITLE_END };
+    let game_title = String::from_utf8_lossy(&data[GB_TITLE_START..title_end])
+        .trim_matches(char::from(0))
         .to_string();
 
-    // Destination code is at offset 0x14A.
-    let destination_code = data[0x14A];
+    let destination_code = data[GB_DESTINATION];
     let region_name = match destination_code {
         0x00 => "Japan",
         0x01 => "Non-Japan (International)",
@@ -93,19 +98,20 @@ mod tests {
         // Signature (usually present, but not strictly required for region/system analysis)
         data[0x100..0x104].copy_from_slice(b"LOGO"); // Dummy signature
 
-        // Game Title (max 11 chars, null-terminated)
+        // Game Title (11 chars for GBC, 15 for GB)
         let mut title_bytes = title.as_bytes().to_vec();
-        // FIX: Resize title_bytes to 11 bytes.
-        title_bytes.resize(11, 0);
+        let mut title_length = 11;
+        // Check if GBC
+        if system_byte & 0x80 == 0x00 {
+            title_length = 15;
+        }
+        title_bytes.resize(title_length, 0);
+        data[GB_TITLE_START..(GB_TITLE_START+title_length)].copy_from_slice(&title_bytes);
 
-        // FIX: Destination slice must be 11 bytes long (0x134 to 0x13F exclusive)
-        data[0x134..0x13F].copy_from_slice(&title_bytes);
-
-        // Destination Code
-        data[0x14A] = destination_code;
+        data[GB_DESTINATION] = destination_code;
 
         // System Type Byte
-        data[0x143] = system_byte;
+        data[GBC_SYSTEM_TYPE] = system_byte;
 
         data
     }
@@ -159,6 +165,34 @@ mod tests {
         assert_eq!(analysis.game_title, "GBC TITLE");
         assert_eq!(analysis.destination_code, 0x01);
         assert_eq!(analysis.region, "Non-Japan (International)");
+        Ok(())
+    }
+
+    // GB uses 15 bits for title name while GBC uses 11
+    // Test that we properly read longer title names
+    #[test]
+    fn test_analyze_gb_long_title() -> Result<(), Box<dyn Error>> {
+        let data = generate_gb_header(0x00, 0x00, "LOOOOONG TITLE"); // Japan, GB
+        let analysis = analyze_gb_data(&data, "test_rom_jp.gbc")?;
+
+        assert_eq!(analysis.source_name, "test_rom_jp.gbc");
+        assert_eq!(analysis.system_type, "Game Boy (GB)");
+        assert_eq!(analysis.game_title, "LOOOOONG TITLE");
+        assert_eq!(analysis.destination_code, 0x00);
+        assert_eq!(analysis.region, "Japan");
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_gbc_long_title() -> Result<(), Box<dyn Error>> {
+        let data = generate_gb_header(0x00, 0x80, "LOONG TITLE"); // Japan, GB
+        let analysis = analyze_gb_data(&data, "test_rom_jp.gbc")?;
+
+        assert_eq!(analysis.source_name, "test_rom_jp.gbc");
+        assert_eq!(analysis.system_type, "Game Boy Color (GBC)");
+        assert_eq!(analysis.game_title, "LOONG TITL");
+        assert_eq!(analysis.destination_code, 0x00);
+        assert_eq!(analysis.region, "Japan");
         Ok(())
     }
 
