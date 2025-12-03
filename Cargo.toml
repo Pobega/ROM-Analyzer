@@ -11,3 +11,5 @@ description = "A CLI tool for analyzing console ROM file headers."
 zip = "0.6"
 clap = { version = "4.0", features = ["derive"] }
 chd = "0.3.3"
+log = "0.4"
+env_logger = "0.11"

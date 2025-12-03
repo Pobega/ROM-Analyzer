@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::Read;
 use zip::ZipArchive;
+use log::{error, info};
 
 use crate::RomAnalysisResult;
 use crate::error::RomAnalyzerError;
@@ -16,7 +17,7 @@ pub fn process_zip_file(
     let mut archive = ZipArchive::new(file)?;
     let mut found_rom = false;
 
-    println!("[+] Analyzing zip archive: {}", original_filename);
+    info!("[+] Analyzing ZIP archive: {}", original_filename);
 
     for i in 0..archive.len() {
         let mut file_in_zip = archive.by_index(i)?;
@@ -32,7 +33,7 @@ pub fn process_zip_file(
             .any(|ext| lower_entry_name.ends_with(ext));
 
         if is_supported_rom {
-            println!("[+] Found supported ROM in zip: {}", entry_name);
+            info!("[+] Found supported ROM in zip: {}", entry_name);
             found_rom = true;
             let mut data = Vec::new();
             file_in_zip.read_to_end(&mut data)?;
@@ -42,7 +43,7 @@ pub fn process_zip_file(
                     return Ok(analysis);
                 }
                 Err(e) => {
-                    eprintln!("[!] Analysis failed for {}: {}", entry_name, e);
+                    error!("[!] Analysis failed for {}: {}", entry_name, e);
                 }
             }
         }

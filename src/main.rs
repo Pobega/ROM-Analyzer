@@ -1,11 +1,12 @@
-use clap::Parser;
+use clap::{Parser, ArgAction};
 use std::fs::{self, File};
 use std::path::Path;
+use env_logger;
+use log::{error, LevelFilter};
 
 use rom_analyzer::archive::zip::process_zip_file;
 use rom_analyzer::RomAnalysisResult;
 use rom_analyzer::dispatcher::process_rom_data;
-use rom_analyzer::print_separator;
 
 use rom_analyzer::archive::chd::ChdAnalysis;
 use rom_analyzer::archive::chd::analyze_chd_file;
@@ -16,6 +17,10 @@ struct Cli {
     /// The path to the ROM file or zip archive
     #[clap(value_parser, num_args = 1..)]
     file_paths: Vec<String>,
+
+    /// Verbosity level
+    #[clap(short, action = ArgAction::Count)]
+    verbose: u8,
 }
 
 fn get_file_extension_lowercase(file_path: &str) -> String {
@@ -53,9 +58,20 @@ fn process_single_file(
 fn main() {
     let cli = Cli::parse();
 
-    print_separator();
-    println!("ROM Analyzer CLI");
-    print_separator();
+    let default_log_level = match cli.verbose {
+        0 => LevelFilter::Warn,     // Default (no -v): Only show Warnings and Errors
+        1 => LevelFilter::Info,  // -v: Show Info messages
+        2 => LevelFilter::Debug, // -vv: Show Debug messages
+        _ => LevelFilter::Trace, // -vvv or more: Show everything (Trace)
+    };
+
+    env_logger::Builder::new()
+        .filter_level(default_log_level)
+        .format_timestamp(None)
+        .format_module_path(false)
+        .format_level(false)
+        .format_target(false)
+        .init();
 
     let mut had_error = false;
 
@@ -63,7 +79,7 @@ fn main() {
         let path = Path::new(file_path);
 
         if !path.exists() {
-            eprintln!("File not found: {}", file_path);
+            error!("File not found: {}", file_path);
             had_error = true;
             continue;
         }
@@ -71,7 +87,7 @@ fn main() {
         let file_name = if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
             name
         } else {
-            eprintln!("Could not get a valid UTF-8 filename for: {}", file_path);
+            error!("Could not get a valid UTF-8 filename for: {}", file_path);
             had_error = true;
             continue;
         };
@@ -80,7 +96,7 @@ fn main() {
         match result {
             Ok(analysis) => analysis.print(),
             Err(e) => {
-                eprintln!("Error processing file {}: {}", file_path, e);
+                error!("Error processing file {}: {}", file_path, e);
                 had_error = true;
             }
         }

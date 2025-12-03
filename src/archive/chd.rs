@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+use log::info;
 
 use chd::Chd;
 
@@ -17,16 +18,14 @@ pub enum ChdAnalysis {
 }
 
 pub fn analyze_chd_file(filepath: &Path, source_name: &str) -> Result<ChdAnalysis, Box<dyn Error>> {
-    println!("\n=======================================================");
-    println!("  CHD ANALYSIS: {}", source_name);
-    println!("=======================================================");
-
     let file = File::open(filepath)?;
     let mut reader = BufReader::new(file);
     let mut chd = Chd::open(&mut reader, None)?;
 
     let hunk_count = chd.header().hunk_count();
     let hunk_size = chd.header().hunk_size();
+
+    info!("[+] Analyzing CHD file: {}", filepath.file_name().unwrap_or_else(|| filepath.as_ref()).to_string_lossy());
 
     let mut decompressed_data = Vec::new();
     decompressed_data.reserve_exact(
@@ -49,8 +48,8 @@ pub fn analyze_chd_file(filepath: &Path, source_name: &str) -> Result<ChdAnalysi
         decompressed_data.extend_from_slice(&out_buf[..data_to_add]);
     }
 
-    println!(
-        "Decompressed first {} bytes for header analysis.",
+    info!(
+        "[+] Decompressed first {} bytes for header analysis.",
         decompressed_data.len()
     );
 

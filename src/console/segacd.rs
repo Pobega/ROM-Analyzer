@@ -2,6 +2,7 @@
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
 use std::error::Error;
+use log::error;
 
 /// Struct to hold the analysis results for a Sega CD ROM.
 #[derive(Debug, PartialEq, Clone)]
@@ -73,7 +74,7 @@ pub fn analyze_segacd_data(
     // If the signature is not recognized, we might still proceed if the region byte is present,
     // but a warning could be logged or returned.
     if signature != "SEGA CD" && signature != "SEGA MEGA" {
-        eprintln!(
+        error!(
             "[!] Warning: File does not appear to be a standard Sega CD boot file (no SEGA CD or SEGA MEGA signature at 0x100) for {}. Found: '{}'",
             source_name, signature
         );

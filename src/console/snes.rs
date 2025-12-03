@@ -1,4 +1,5 @@
 use std::error::Error;
+use log::error;
 
 // Assuming check_region_mismatch! and print_separator are defined elsewhere and accessible.
 // For this refactoring, we'll assume they are handled by the caller of analyze_snes_data.
@@ -128,7 +129,7 @@ pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<SnesAnalysis,
     } else {
         // If neither checksum is valid, log a warning and try LoROM as a fallback, as it's more common.
         // The analysis might be inaccurate in this case.
-        eprintln!(
+        error!(
             "[!] Checksum validation failed for {}. Attempting to read header from LoROM location ({:X}) as fallback.",
             source_name, lorom_header_start
         );

@@ -2,6 +2,7 @@
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
 use std::error::Error;
+use log::error;
 
 /// Struct to hold the analysis results for a Sega cartridge (Genesis/Mega Drive) ROM.
 #[derive(Debug, PartialEq, Clone)]
@@ -74,7 +75,7 @@ pub fn analyze_sega_cartridge_data(
     if !is_valid_signature {
         // Print a warning to stderr or a dedicated log, not stdout for analysis results.
         // For now, we'll keep it as a print, but this might need refinement based on how logs are handled.
-        eprintln!(
+        error!(
             "[!] Warning: Unexpected Sega header signature for {} at 0x100. Found: '{}'",
             source_name, console_name
         );
