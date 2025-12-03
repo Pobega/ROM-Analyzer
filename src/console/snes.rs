@@ -1,5 +1,6 @@
+/// Super Nintendo header documentation referenced here:
 /// https://snes.nesdev.org/wiki/ROM_header
-use log::error;
+use log::{error, info};
 use std::error::Error;
 
 use crate::error::RomAnalyzerError;
@@ -31,12 +32,12 @@ impl SnesAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
         print_separator();
-        println!("Source:       {}", self.source_name);
-        println!("System:       Super Nintendo (SNES)");
-        println!("Game Title:   {}", self.game_title);
-        println!("Mapping:      {}", self.mapping_type);
-        println!("Region Code:  0x{:02X}", self.region_code);
-        println!("Region:       {}", self.region);
+        info!("Source:       {}", self.source_name);
+        info!("System:       Super Nintendo (SNES)");
+        info!("Game Title:   {}", self.game_title);
+        info!("Mapping:      {}", self.mapping_type);
+        info!("Region Code:  0x{:02X}", self.region_code);
+        info!("Region:       {}", self.region);
         print_separator();
     }
 }

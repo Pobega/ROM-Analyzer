@@ -1,10 +1,10 @@
-use log::info;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
 use chd::Chd;
+use log::debug;
 
 use crate::console::psx::{self, PsxAnalysis};
 use crate::console::segacd::{self, SegaCdAnalysis};
@@ -25,7 +25,7 @@ pub fn analyze_chd_file(filepath: &Path, source_name: &str) -> Result<ChdAnalysi
     let hunk_count = chd.header().hunk_count();
     let hunk_size = chd.header().hunk_size();
 
-    info!(
+    debug!(
         "[+] Analyzing CHD file: {}",
         filepath
             .file_name()
@@ -54,7 +54,7 @@ pub fn analyze_chd_file(filepath: &Path, source_name: &str) -> Result<ChdAnalysi
         decompressed_data.extend_from_slice(&out_buf[..data_to_add]);
     }
 
-    info!(
+    debug!(
         "[+] Decompressed first {} bytes for header analysis.",
         decompressed_data.len()
     );

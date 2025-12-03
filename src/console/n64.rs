@@ -1,5 +1,8 @@
+/// N64 header documentation referenced here:
 /// https://en64.shoutwiki.com/wiki/ROM
 use std::error::Error;
+
+use log::info;
 
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
@@ -19,10 +22,10 @@ impl N64Analysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
         print_separator();
-        println!("Source:       {}", self.source_name);
-        println!("System:       Nintendo 64 (N64)");
-        println!("Region:       {}", self.region);
-        println!("Code:         {}", self.country_code);
+        info!("Source:       {}", self.source_name);
+        info!("System:       Nintendo 64 (N64)");
+        info!("Region:       {}", self.region);
+        info!("Code:         {}", self.country_code);
 
         print_separator();
     }

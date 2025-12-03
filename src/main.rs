@@ -12,13 +12,17 @@ use rom_analyzer::{RomAnalysisResult, check_region_mismatch};
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
-    /// The path to the ROM file or zip archive
+    /// Full path(s) to a ROM file(s)
     #[clap(value_parser, num_args = 1..)]
     file_paths: Vec<String>,
 
-    /// Verbosity level
+    /// Verbosity level (-vv for most verbose)
     #[clap(short, action = ArgAction::Count)]
     verbose: u8,
+
+    /// Silence all output except errors
+    #[clap(short, long, action = ArgAction::SetTrue)]
+    quiet: bool,
 }
 
 fn get_file_extension_lowercase(file_path: &str) -> String {
@@ -56,11 +60,14 @@ fn process_single_file(
 fn main() {
     let cli = Cli::parse();
 
-    let default_log_level = match cli.verbose {
-        0 => LevelFilter::Warn,  // Default (no -v): Only show Warnings and Errors
-        1 => LevelFilter::Info,  // -v: Show Info messages
-        2 => LevelFilter::Debug, // -vv: Show Debug messages
-        _ => LevelFilter::Trace, // -vvv or more: Show everything (Trace)
+    let default_log_level = if cli.quiet {
+        LevelFilter::Error // Only show errors if --quiet is passed.
+    } else {
+        match cli.verbose {
+            0 => LevelFilter::Info,  // (no -v): Show Info messages
+            1 => LevelFilter::Debug, // -v: Show Debug messages
+            _ => LevelFilter::Trace, // -vv or more: Show everything (Trace)
+        }
     };
 
     env_logger::Builder::new()

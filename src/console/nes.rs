@@ -1,9 +1,11 @@
+/// NES header documentation referenced here:
 /// https://www.nesdev.org/wiki/INES
 /// https://www.nesdev.org/wiki/NES_2.0
 use std::error::Error;
 
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
+use log::info;
 
 const INES_REGION_BYTE: usize = 9;
 const INES_REGION_MASK: u8 = 0x01;
@@ -31,13 +33,13 @@ impl NesAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
         print_separator();
-        println!("Source:       {}", self.source_name);
-        println!("System:       Nintendo Entertainment System (NES)");
-        println!("Region:       {}", self.region);
+        info!("Source:       {}", self.source_name);
+        info!("System:       Nintendo Entertainment System (NES)");
+        info!("Region:       {}", self.region);
         if self.is_nes2_format {
-            println!("NES2.0 Flag 12: 0x{:02X}", self.region_byte_value);
+            info!("NES2.0 Flag 12: 0x{:02X}", self.region_byte_value);
         } else {
-            println!("iNES Flag 9:  0x{:02X}", self.region_byte_value);
+            info!("iNES Flag 9:  0x{:02X}", self.region_byte_value);
         }
         print_separator();
     }

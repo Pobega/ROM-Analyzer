@@ -1,4 +1,7 @@
+/// Master System header documentation referenced here:
 /// https://www.smspower.org/Development/ROMHeader
+use log::info;
+
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
 use std::error::Error;
@@ -18,10 +21,10 @@ impl MasterSystemAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
         print_separator();
-        println!("Source:       {}", self.source_name);
-        println!("System:       Sega Master System");
-        println!("Region Code:  0x{:02X}", self.region_byte);
-        println!("Region:       {}", self.region);
+        info!("Source:       {}", self.source_name);
+        info!("System:       Sega Master System");
+        info!("Region Code:  0x{:02X}", self.region_byte);
+        info!("Region:       {}", self.region);
 
         print_separator();
     }
