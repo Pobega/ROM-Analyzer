@@ -7,6 +7,13 @@ use std::error::Error;
 use crate::error::RomAnalyzerError;
 use crate::print_separator;
 
+// Map Mode byte offset relative to the header start (0x7FC0 for LoROM, 0xFFC0 for HiROM)
+const MAP_MODE_OFFSET: usize = 0x15;
+
+// Expected Map Mode byte values for LoROM and HiROM
+const LOROM_MAP_MODES: &[u8] = &[0x20, 0x30, 0x25, 0x35];
+const HIROM_MAP_MODES: &[u8] = &[0x21, 0x31, 0x22, 0x32];
+
 /// Struct to hold the analysis results for a SNES ROM.
 #[derive(Debug, PartialEq, Clone)]
 pub struct SnesAnalysis {
@@ -110,7 +117,7 @@ pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<SnesAnalysis,
         // More advanced detection could involve checking for specific patterns.
     }
 
-    // Determine ROM mapping type (LoROM vs HiROM) by checking checksums.
+    // Determine ROM mapping type (LoROM vs HiROM) by checking checksums and Map Mode byte.
     // The relevant header information is usually found at 0x7FC0 for LoROM and 0xFFC0 for HiROM
     // (relative to the start of the ROM, accounting for the header_offset).
     let lorom_header_start = 0x7FC0 + header_offset; // Header block starts here
@@ -119,22 +126,55 @@ pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<SnesAnalysis,
     let mapping_type: String;
     let valid_header_offset: usize;
 
-    // Prioritize HiROM checksum validation if it exists and is valid.
-    if validate_snes_checksum(data, hirom_header_start) {
-        valid_header_offset = hirom_header_start;
+    let lorom_checksum_valid = validate_snes_checksum(data, lorom_header_start);
+    let hirom_checksum_valid = validate_snes_checksum(data, hirom_header_start);
+
+    // Get Map Mode bytes if headers are within bounds
+    let lorom_map_mode_byte = if lorom_header_start + MAP_MODE_OFFSET < file_size {
+        Some(data[lorom_header_start + MAP_MODE_OFFSET])
+    } else {
+        None
+    };
+    let hirom_map_mode_byte = if hirom_header_start + MAP_MODE_OFFSET < file_size {
+        Some(data[hirom_header_start + MAP_MODE_OFFSET])
+    } else {
+        None
+    };
+
+    let is_lorom_map_mode = lorom_map_mode_byte.map_or(false, |b| LOROM_MAP_MODES.contains(&b));
+    let is_hirom_map_mode = hirom_map_mode_byte.map_or(false, |b| HIROM_MAP_MODES.contains(&b));
+
+    // Decision logic: Prioritize HiROM if both checksum and map mode are consistent.
+    // Then check LoROM similarly. If only one checksum is valid, use that.
+    // If neither is fully consistent, fallback to LoROM (unverified) with a warning.
+    if hirom_checksum_valid && is_hirom_map_mode {
         mapping_type = "HiROM".to_string();
-    } else if validate_snes_checksum(data, lorom_header_start) {
-        valid_header_offset = lorom_header_start;
+        valid_header_offset = hirom_header_start;
+    } else if lorom_checksum_valid && is_lorom_map_mode {
         mapping_type = "LoROM".to_string();
+        valid_header_offset = lorom_header_start;
+    } else if hirom_checksum_valid {
+        mapping_type = "HiROM (Map Mode Unverified)".to_string();
+        valid_header_offset = hirom_header_start;
+        error!(
+            "[!] HiROM checksum valid for {}, but Map Mode byte (0x{:02X?}) is not a typical HiROM value. Falling back to HiROM.",
+            source_name, hirom_map_mode_byte
+        );
+    } else if lorom_checksum_valid {
+        mapping_type = "LoROM (Map Mode Unverified)".to_string();
+        valid_header_offset = lorom_header_start;
+        error!(
+            "[!] LoROM checksum valid for {}, but Map Mode byte (0x{:02X?}) is not a typical LoROM value. Falling back to LoROM.",
+            source_name, lorom_map_mode_byte
+        );
     } else {
         // If neither checksum is valid, log a warning and try LoROM as a fallback, as it's more common.
-        // The analysis might be inaccurate in this case.
         error!(
             "[!] Checksum validation failed for {}. Attempting to read header from LoROM location ({:X}) as fallback.",
             source_name, lorom_header_start
         );
-        valid_header_offset = lorom_header_start; // Fallback to LoROM offset
         mapping_type = "LoROM (Unverified)".to_string();
+        valid_header_offset = lorom_header_start; // Fallback to LoROM offset
     }
 
     // Ensure the determined header offset plus the header size needed for analysis is within the file bounds.
@@ -179,10 +219,11 @@ mod tests {
     /// It allows specifying ROM size, copier header offset, region code, mapping type.
     fn generate_snes_data(
         rom_size: usize,
-        copier_header_offset: usize, // 0 for no copier header, 512 for copier header
+        copier_header_offset: usize,
         region_code: u8,
         is_hirom: bool,
-        title: &str, // Added title parameter
+        title: &str,
+        map_mode_byte: Option<u8>,
     ) -> Vec<u8> {
         let mut data = vec![0; rom_size];
 
@@ -200,7 +241,9 @@ mod tests {
         }
 
         // 1. Set Title (21 bytes starting at header_start + 0x00)
-        let mut title_bytes = title.as_bytes().to_vec();
+        let mut title_bytes: Vec<u8> = title.as_bytes().to_vec();
+        // Truncate if longer than 21 bytes, then pad with spaces if shorter.
+        title_bytes.truncate(21);
         title_bytes.resize(21, b' '); // Pad with spaces, standard SNES header practice
 
         data[header_start..header_start + 21].copy_from_slice(&title_bytes);
@@ -208,7 +251,12 @@ mod tests {
         // 2. Set Region Code (at header_start + 0x19)
         data[header_start + 0x19] = region_code;
 
-        // 3. Set a valid checksum and its complement.
+        // 3. Set Map Mode byte if provided (at header_start + MAP_MODE_OFFSET)
+        if let Some(map_mode) = map_mode_byte {
+            data[header_start + MAP_MODE_OFFSET] = map_mode;
+        }
+
+        // 4. Set a valid checksum and its complement.
         // The checksum algorithm is (checksum + complement) == 0xFFFF. We use a simple pair.
         let complement: u16 = 0x5555;
         let checksum: u16 = 0xFFFF - complement; // 0xAAAA
@@ -223,12 +271,12 @@ mod tests {
 
     #[test]
     fn test_analyze_snes_data_lorom_japan() -> Result<(), Box<dyn Error>> {
-        let data = generate_snes_data(0x80000, 0, 0x00, false, "TEST GAME TITLE"); // 512KB ROM, LoROM, Japan
+        let data = generate_snes_data(0x80000, 0, 0x00, false, "TEST GAME TITLE", None); // 512KB ROM, LoROM, Japan
         let analysis = analyze_snes_data(&data, "test_lorom_jp.sfc")?;
 
         assert_eq!(analysis.source_name, "test_lorom_jp.sfc");
         assert_eq!(analysis.game_title, "TEST GAME TITLE");
-        assert_eq!(analysis.mapping_type, "LoROM");
+        assert_eq!(analysis.mapping_type, "LoROM (Map Mode Unverified)");
         assert_eq!(analysis.region_code, 0x00);
         assert_eq!(analysis.region, "Japan (NTSC)");
         Ok(())
@@ -236,12 +284,12 @@ mod tests {
 
     #[test]
     fn test_analyze_snes_data_hirom_usa() -> Result<(), Box<dyn Error>> {
-        let data = generate_snes_data(0x100000, 0, 0x01, true, "TEST GAME TITLE"); // 1MB ROM, HiROM, USA
+        let data = generate_snes_data(0x100000, 0, 0x01, true, "TEST GAME TITLE", None); // 1MB ROM, HiROM, USA
         let analysis = analyze_snes_data(&data, "test_hirom_us.sfc")?;
 
         assert_eq!(analysis.source_name, "test_hirom_us.sfc");
         assert_eq!(analysis.game_title, "TEST GAME TITLE");
-        assert_eq!(analysis.mapping_type, "HiROM");
+        assert_eq!(analysis.mapping_type, "HiROM (Map Mode Unverified)");
         assert_eq!(analysis.region_code, 0x01);
         assert_eq!(analysis.region, "USA / Canada (NTSC)");
         Ok(())
@@ -250,12 +298,12 @@ mod tests {
     #[test]
     fn test_analyze_snes_data_lorom_europe_copier_header() -> Result<(), Box<dyn Error>> {
         // Rom size ends with 512 bytes, e.g., 800KB + 512 bytes = 800512 bytes.
-        let data = generate_snes_data(0x80000 + 512, 512, 0x02, false, "TEST GAME TITLE"); // LoROM, Europe, with 512-byte copier header
+        let data = generate_snes_data(0x80000 + 512, 512, 0x02, false, "TEST GAME TITLE", None); // LoROM, Europe, with 512-byte copier header
         let analysis = analyze_snes_data(&data, "test_lorom_eur_copier.sfc")?;
 
         assert_eq!(analysis.source_name, "test_lorom_eur_copier.sfc");
         assert_eq!(analysis.game_title, "TEST GAME TITLE");
-        assert_eq!(analysis.mapping_type, "LoROM"); // Should detect copier header but still identify LoROM
+        assert_eq!(analysis.mapping_type, "LoROM (Map Mode Unverified)"); // Should detect copier header but still identify LoROM
         assert_eq!(analysis.region_code, 0x02);
         assert_eq!(analysis.region, "Europe / Oceania / Asia (PAL)");
         Ok(())
@@ -270,12 +318,13 @@ mod tests {
             0x0F, // Region: Canada (0x0F)
             true, // HiROM
             "TEST GAME TITLE",
+            None,
         );
         let analysis = analyze_snes_data(&data, "test_hirom_can_copier.sfc")?;
 
         assert_eq!(analysis.source_name, "test_hirom_can_copier.sfc");
         assert_eq!(analysis.game_title, "TEST GAME TITLE");
-        assert_eq!(analysis.mapping_type, "HiROM");
+        assert_eq!(analysis.mapping_type, "HiROM (Map Mode Unverified)");
         assert_eq!(analysis.region_code, 0x0F);
         assert_eq!(analysis.region, "Canada (NTSC)");
         Ok(())
@@ -283,12 +332,12 @@ mod tests {
 
     #[test]
     fn test_analyze_snes_data_unknown_region() -> Result<(), Box<dyn Error>> {
-        let data = generate_snes_data(0x80000, 0, 0xFF, false, "TEST GAME TITLE"); // LoROM, Unknown region
+        let data = generate_snes_data(0x80000, 0, 0xFF, false, "TEST GAME TITLE", None); // LoROM, Unknown region
         let analysis = analyze_snes_data(&data, "test_lorom_unknown.sfc")?;
 
         assert_eq!(analysis.source_name, "test_lorom_unknown.sfc");
         assert_eq!(analysis.game_title, "TEST GAME TITLE");
-        assert_eq!(analysis.mapping_type, "LoROM");
+        assert_eq!(analysis.mapping_type, "LoROM (Map Mode Unverified)");
         assert_eq!(analysis.region_code, 0xFF);
         assert_eq!(analysis.region, "Unknown Region (0xFF)");
         Ok(())
@@ -303,6 +352,7 @@ mod tests {
             0x01,               // USA region code
             false,              // LoROM base
             "INVALID CHECKSUM", // Title to assert on
+            None,
         );
 
         // Manually invalidate the checksum/complement pair.
@@ -336,5 +386,108 @@ mod tests {
                 .to_string()
                 .contains("too small or header is invalid")
         );
+    }
+
+    #[test]
+    fn test_analyze_snes_data_hirom_checksum_map_mode_consistent() -> Result<(), Box<dyn Error>> {
+        let data = generate_snes_data(0x100000, 0, 0x01, true, "TEST HIROM CONSISTENT", Some(0x21)); // HiROM, USA, HiROM Map Mode
+        let analysis = analyze_snes_data(&data, "test_hirom_consistent.sfc")?;
+
+        assert_eq!(analysis.mapping_type, "HiROM");
+        assert_eq!(analysis.game_title, "TEST HIROM CONSISTENT");
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_snes_data_lorom_checksum_map_mode_consistent() -> Result<(), Box<dyn Error>> {
+        let data = generate_snes_data(0x80000, 0, 0x00, false, "TEST LOROM CONSISTENT", Some(0x20)); // LoROM, Japan, LoROM Map Mode
+        let analysis = analyze_snes_data(&data, "test_lorom_consistent.sfc")?;
+
+        assert_eq!(analysis.mapping_type, "LoROM");
+        assert_eq!(analysis.game_title, "TEST LOROM CONSISTENT");
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_snes_data_hirom_checksum_map_mode_inconsistent() -> Result<(), Box<dyn Error>> {
+        let data = generate_snes_data(
+            0x100000,
+            0,
+            0x01,
+            true,
+            "TEST HIROM INCONSISTENT",
+            Some(0x20),
+        ); // HiROM, USA, LoROM Map Mode
+        let analysis = analyze_snes_data(&data, "test_hirom_inconsistent.sfc")?;
+
+        assert_eq!(analysis.mapping_type, "HiROM (Map Mode Unverified)");
+        assert_eq!(analysis.game_title, "TEST HIROM INCONSISTE");
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_snes_data_lorom_checksum_map_mode_inconsistent() -> Result<(), Box<dyn Error>> {
+        let data = generate_snes_data(
+            0x80000,
+            0,
+            0x00,
+            false,
+            "TEST LOROM INCONSISTENT",
+            Some(0x21),
+        ); // LoROM, Japan, HiROM Map Mode
+        let analysis = analyze_snes_data(&data, "test_lorom_inconsistent.sfc")?;
+
+        assert_eq!(analysis.mapping_type, "LoROM (Map Mode Unverified)");
+        assert_eq!(analysis.game_title, "TEST LOROM INCONSISTE");
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_snes_data_no_valid_checksum_map_mode_consistent_hirom_only()
+    -> Result<(), Box<dyn Error>> {
+        let mut data = generate_snes_data(
+            0x100000,
+            0,
+            0x01,
+            true,
+            "TEST NO CHECKSUM HIROM MAP",
+            Some(0x21),
+        ); // HiROM, USA, HiROM Map Mode
+        // Invalidate both checksums
+        let lorom_checksum_start = 0x7FC0 + 0x1C;
+        data[lorom_checksum_start..lorom_checksum_start + 4]
+            .copy_from_slice(&[0x00, 0x00, 0x00, 0x00]);
+        let hirom_checksum_start = 0xFFC0 + 0x1C;
+        data[hirom_checksum_start..hirom_checksum_start + 4]
+            .copy_from_slice(&[0x00, 0x00, 0x00, 0x00]);
+
+        let analysis = analyze_snes_data(&data, "test_no_checksum_hirom_map.sfc")?;
+
+        assert_eq!(analysis.mapping_type, "LoROM (Unverified)"); // Expect fallback
+        Ok(())
+    }
+    #[test]
+    fn test_analyze_snes_data_no_valid_checksum_map_mode_consistent_lorom_only()
+    -> Result<(), Box<dyn Error>> {
+        let mut data = generate_snes_data(
+            0x80000,
+            0,
+            0x00,
+            false,
+            "TEST NO CHECKSUM LOROM MAP",
+            Some(0x20),
+        ); // LoROM, Japan, LoROM Map Mode
+        // Invalidate both checksums
+        let lorom_checksum_start = 0x7FC0 + 0x1C;
+        data[lorom_checksum_start..lorom_checksum_start + 4]
+            .copy_from_slice(&[0x00, 0x00, 0x00, 0x00]);
+        let hirom_checksum_start = 0xFFC0 + 0x1C;
+        data[hirom_checksum_start..hirom_checksum_start + 4]
+            .copy_from_slice(&[0x00, 0x00, 0x00, 0x00]);
+
+        let analysis = analyze_snes_data(&data, "test_no_checksum_lorom_map.sfc")?;
+
+        assert_eq!(analysis.mapping_type, "LoROM (Unverified)"); // Expect fallback
+        Ok(())
     }
 }
