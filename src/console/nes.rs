@@ -1,3 +1,5 @@
+/// https://www.nesdev.org/wiki/INES
+/// https://www.nesdev.org/wiki/NES_2.0
 use std::error::Error;
 
 // Assuming check_region_mismatch! and print_separator are defined elsewhere and accessible.
