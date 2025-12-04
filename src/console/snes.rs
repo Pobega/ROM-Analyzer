@@ -1,7 +1,9 @@
 /// Super Nintendo header documentation referenced here:
 /// https://snes.nesdev.org/wiki/ROM_header
-use log::{error, info};
 use std::error::Error;
+
+use log::error;
+use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
 
@@ -13,7 +15,7 @@ const LOROM_MAP_MODES: &[u8] = &[0x20, 0x30, 0x25, 0x35];
 const HIROM_MAP_MODES: &[u8] = &[0x21, 0x31, 0x22, 0x32];
 
 /// Struct to hold the analysis results for a SNES ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct SnesAnalysis {
     /// The name of the source file.
     pub source_name: String,
@@ -29,8 +31,8 @@ pub struct SnesAnalysis {
 
 impl SnesAnalysis {
     /// Prints the analysis results to the console.
-    pub fn print(&self) {
-        info!(
+    pub fn print(&self) -> String {
+        format!(
             "{}\n\
              System:       Super Nintendo (SNES)\n\
              Game Title:   {}\n\
@@ -38,7 +40,12 @@ impl SnesAnalysis {
              Region Code:  0x{:02X}\n\
              Region:       {}",
             self.source_name, self.game_title, self.mapping_type, self.region_code, self.region
-        );
+        )
+    }
+
+    /// Return a JSON string of SnesAnalysis.
+    pub fn json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

@@ -1,8 +1,11 @@
 /// Genesis header documentation referenced here:
 /// https://plutiedev.com/rom-header#system
-use crate::error::RomAnalyzerError;
-use log::{error, info};
 use std::error::Error;
+
+use log::error;
+use serde::Serialize;
+
+use crate::error::RomAnalyzerError;
 
 const SYSTEM_TYPE_START: usize = 0x100;
 const SYSTEM_TYPE_END: usize = 0x110;
@@ -13,7 +16,7 @@ const INTL_TITLE_END: usize = 0x180;
 const REGION_CODE_BYTE: usize = 0x1F0;
 
 /// Struct to hold the analysis results for a Sega cartridge (Genesis/Mega Drive) ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct GenesisAnalysis {
     /// The name of the source file.
     pub source_name: String,
@@ -31,8 +34,8 @@ pub struct GenesisAnalysis {
 
 impl GenesisAnalysis {
     /// Prints the analysis results to the console.
-    pub fn print(&self) {
-        info!(
+    pub fn print(&self) -> String {
+        format!(
             "{}\n\
              System:       {}\n\
              Game Title (Domestic): {}\n\
@@ -46,7 +49,12 @@ impl GenesisAnalysis {
             self.region_code_byte,
             self.region_code_byte as char,
             self.region
-        );
+        )
+    }
+
+    /// Return a JSON String of GenesisAnalysis.
+    pub fn json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

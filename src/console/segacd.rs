@@ -2,12 +2,13 @@
 /// https://segaretro.org/ROM_header
 use std::error::Error;
 
-use log::{error, info};
+use log::error;
+use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
 
 /// Struct to hold the analysis results for a Sega CD ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct SegaCdAnalysis {
     /// The detected signature from the boot file (e.g., "SEGA CD", "SEGA MEGA").
     pub signature: String,
@@ -21,15 +22,20 @@ pub struct SegaCdAnalysis {
 
 impl SegaCdAnalysis {
     /// Prints the analysis results to the console.
-    pub fn print(&self) {
-        info!(
+    pub fn print(&self) -> String {
+        format!(
             "{}\n\
              System:       Sega CD / Mega CD\n\
              Signature:    {}\n\
              Region Code:  0x{:02X}\n\
              Region:       {}",
             self.source_name, self.signature, self.region_code, self.region
-        );
+        )
+    }
+
+    /// Return a JSON String of SegaCdAnalysis.
+    pub fn json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

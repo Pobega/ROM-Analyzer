@@ -1,10 +1,11 @@
-use log::info;
-
-use crate::error::RomAnalyzerError;
 use std::error::Error;
 
+use serde::Serialize;
+
+use crate::error::RomAnalyzerError;
+
 /// Struct to hold the analysis results for a PSX ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct PsxAnalysis {
     /// The name of the source file.
     pub source_name: String,
@@ -16,20 +17,25 @@ pub struct PsxAnalysis {
 
 impl PsxAnalysis {
     /// Prints the analysis results to the console.
-    pub fn print(&self) {
+    pub fn print(&self) -> String {
         let executable_prefix_not_found = if self.code == "N/A" {
             "\nNote: Executable prefix (SLUS/SLES/SLPS) not found in header area. Requires main data track (.bin or .iso)."
         } else {
             ""
         };
-        info!(
+        format!(
             "{}\n\
              System:       Sony PlayStation (PSX)\n\
              Region:       {}\n\
              Code:         {}\
              {}",
             self.source_name, self.region, self.code, executable_prefix_not_found
-        );
+        )
+    }
+
+    /// Return a JSON String of PSXAnalysis.
+    pub fn json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

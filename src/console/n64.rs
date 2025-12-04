@@ -2,12 +2,12 @@
 /// https://en64.shoutwiki.com/wiki/ROM
 use std::error::Error;
 
-use log::info;
+use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
 
 /// Struct to hold the analysis results for an N64 ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct N64Analysis {
     /// The name of the source file.
     pub source_name: String,
@@ -19,14 +19,19 @@ pub struct N64Analysis {
 
 impl N64Analysis {
     /// Prints the analysis results to the console.
-    pub fn print(&self) {
-        info!(
+    pub fn print(&self) -> String {
+        format!(
             "{}\n\
              System:       Nintendo 64 (N64)\n\
              Region:       {}\n\
              Code:         {}",
             self.source_name, self.region, self.country_code
-        );
+        )
+    }
+
+    /// Return a JSON String of N64Analysis.
+    pub fn json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

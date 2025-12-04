@@ -2,12 +2,12 @@
 /// https://problemkaputt.de/gbatek-gba-cartridge-header.htm
 use std::error::Error;
 
-use log::info;
+use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
 
 /// Struct to hold the analysis results for a GBA ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct GbaAnalysis {
     /// The name of the source file.
     pub source_name: String,
@@ -23,8 +23,8 @@ pub struct GbaAnalysis {
 
 impl GbaAnalysis {
     /// Prints the analysis results to the console.
-    pub fn print(&self) {
-        info!(
+    pub fn print(&self) -> String {
+        format!(
             "{}\n\
              System:       Game Boy Advance (GBA)\n\
              Game Title:   {}\n\
@@ -32,7 +32,12 @@ impl GbaAnalysis {
              Maker Code:   {}\n\
              Region:       {}",
             self.source_name, self.game_title, self.game_code, self.maker_code, self.region
-        );
+        )
+    }
+
+    /// Return a JSON String of GbaAnalysis
+    pub fn json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

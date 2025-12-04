@@ -43,7 +43,7 @@ pub enum RomAnalysisResult {
 }
 
 impl RomAnalysisResult {
-    pub fn print(&self) {
+    pub fn print(&self) -> String {
         match self {
             RomAnalysisResult::GameGear(a) => a.print(),
             RomAnalysisResult::GB(a) => a.print(),
@@ -55,6 +55,21 @@ impl RomAnalysisResult {
             RomAnalysisResult::PSX(a) => a.print(),
             RomAnalysisResult::SegaCD(a) => a.print(),
             RomAnalysisResult::SNES(a) => a.print(),
+        }
+    }
+
+    pub fn json(&self) -> String {
+        match self {
+            RomAnalysisResult::GameGear(a) => a.json(),
+            RomAnalysisResult::GB(a) => a.json(),
+            RomAnalysisResult::GBA(a) => a.json(),
+            RomAnalysisResult::Genesis(a) => a.json(),
+            RomAnalysisResult::MasterSystem(a) => a.json(),
+            RomAnalysisResult::N64(a) => a.json(),
+            RomAnalysisResult::NES(a) => a.json(),
+            RomAnalysisResult::PSX(a) => a.json(),
+            RomAnalysisResult::SegaCD(a) => a.json(),
+            RomAnalysisResult::SNES(a) => a.json(),
         }
     }
 

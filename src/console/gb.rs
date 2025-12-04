@@ -2,7 +2,7 @@
 /// https://gbdev.io/pandocs/The_Cartridge_Header.html
 use std::error::Error;
 
-use log::info;
+use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
 
@@ -14,7 +14,7 @@ const GBC_SYSTEM_TYPE: usize = 0x143;
 const GBC_TITLE_END: usize = 0x13F;
 
 /// Struct to hold the analysis results for a Game Boy ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct GbAnalysis {
     /// The name of the source file.
     pub source_name: String,
@@ -30,15 +30,20 @@ pub struct GbAnalysis {
 
 impl GbAnalysis {
     /// Prints the analysis results to the console.
-    pub fn print(&self) {
-        info!(
+    pub fn print(&self) -> String {
+        format!(
             "{}\n\
              System:       {}\n\
              Game Title:   {}\n\
              Region Code:  0x{:02X}\n\
              Region:       {}",
             self.source_name, self.system_type, self.game_title, self.destination_code, self.region
-        );
+        )
+    }
+
+    /// Return a JSON String of GbAnalysis.
+    pub fn json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

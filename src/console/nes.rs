@@ -3,8 +3,9 @@
 /// https://www.nesdev.org/wiki/NES_2.0
 use std::error::Error;
 
+use serde::Serialize;
+
 use crate::error::RomAnalyzerError;
-use log::info;
 
 const INES_REGION_BYTE: usize = 9;
 const INES_REGION_MASK: u8 = 0x01;
@@ -16,7 +17,7 @@ const NES2_FORMAT_MASK: u8 = 0x0C;
 const NES2_FORMAT_EXPECTED_VALUE: u8 = 0x08;
 
 /// Struct to hold the analysis results for a NES ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct NesAnalysis {
     /// The name of the source file.
     pub source_name: String,
@@ -30,20 +31,25 @@ pub struct NesAnalysis {
 
 impl NesAnalysis {
     /// Prints the analysis results to the console.
-    pub fn print(&self) {
+    pub fn print(&self) -> String {
         let nes_flag_display = if self.is_nes2_format {
             format!("\nNES2.0 Flag 12: 0x{:02X}", self.region_byte_value)
         } else {
             format!("\niNES Flag 9:  0x{:02X}", self.region_byte_value)
         };
 
-        info!(
+        format!(
             "{}\n\
              System:       Nintendo Entertainment System (NES)\n\
              Region:       {}\
              {}",
             self.source_name, self.region, nes_flag_display
-        );
+        )
+    }
+
+    /// Return a JSON String of NESAnalysis.
+    pub fn json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

@@ -3,7 +3,7 @@ use std::path::Path;
 
 use clap::{ArgAction, Parser};
 use env_logger;
-use log::{LevelFilter, error, warn};
+use log::{LevelFilter, error, info, warn};
 
 use rom_analyzer::RomAnalysisResult;
 use rom_analyzer::archive::chd::{ChdAnalysis, analyze_chd_file};
@@ -25,6 +25,10 @@ struct Cli {
     /// Silence all output except errors
     #[clap(short, long, action = ArgAction::SetTrue)]
     quiet: bool,
+
+    /// Format output as JSON (suppresses everything except STDERR)
+    #[clap(short, long, action = ArgAction::SetTrue)]
+    json: bool,
 }
 
 fn get_file_extension_lowercase(file_path: &str) -> String {
@@ -102,7 +106,12 @@ fn main() {
         let result = process_single_file(file_path, path, file_name);
         match result {
             Ok(analysis) => {
-                analysis.print();
+                let printable: String = if cli.json {
+                    analysis.json()
+                } else {
+                    analysis.print()
+                };
+                info!("{}", printable);
                 if check_region_mismatch(analysis.source_name(), analysis.region()) {
                     let inferred_region =
                         infer_region_from_filename(analysis.source_name()).unwrap_or("Unknown");

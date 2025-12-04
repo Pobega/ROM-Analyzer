@@ -2,7 +2,8 @@
 /// https://www.smspower.org/Development/ROMHeader
 use std::error::Error;
 
-use log::{debug, info};
+use log::debug;
+use serde::Serialize;
 
 use crate::region::infer_region_from_filename;
 
@@ -11,7 +12,7 @@ const REGION_CODE_OFFSET: usize = 0xf;
 const SEGA_HEADER_SIGNATURE: &[u8] = b"TMR SEGA";
 
 /// Struct to hold the analysis results for a Game Gear ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct GameGearAnalysis {
     /// The name of the source file.
     pub source_name: String,
@@ -23,19 +24,24 @@ pub struct GameGearAnalysis {
 
 impl GameGearAnalysis {
     /// Prints the analysis results to the console.
-    pub fn print(&self) {
+    pub fn print(&self) -> String {
         let region_not_in_rom_header = if !self.region_found {
             "\nNote:         Region information not in ROM header, inferred from filename."
         } else {
             ""
         };
-        info!(
+        format!(
             "{}\n\
              System:       Sega Game Gear\n\
              Region:       {}\
              {}",
             self.source_name, self.region, region_not_in_rom_header
-        );
+        )
+    }
+
+    /// Return a JSON string of GameGearAnalysis.
+    pub fn json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

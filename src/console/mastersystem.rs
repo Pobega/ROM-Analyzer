@@ -1,12 +1,13 @@
 /// Master System header documentation referenced here:
 /// https://www.smspower.org/Development/ROMHeader
-use log::info;
-
-use crate::error::RomAnalyzerError;
 use std::error::Error;
 
+use serde::Serialize;
+
+use crate::error::RomAnalyzerError;
+
 /// Struct to hold the analysis results for a Master System ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct MasterSystemAnalysis {
     /// The name of the source file.
     pub source_name: String,
@@ -18,14 +19,19 @@ pub struct MasterSystemAnalysis {
 
 impl MasterSystemAnalysis {
     /// Prints the analysis results to the console.
-    pub fn print(&self) {
-        info!(
+    pub fn print(&self) -> String {
+        format!(
             "{}\n\
              System:       Sega Master System\n\
              Region Code:  0x{:02X}\n\
              Region:       {}",
             self.source_name, self.region_byte, self.region
-        );
+        )
+    }
+
+    /// Return a JSON String of MasterSystemAnalysis.
+    pub fn json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
     }
 }
 
