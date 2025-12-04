@@ -32,9 +32,9 @@ impl NesAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
         let nes_flag_display = if self.is_nes2_format {
-            format!("\n    NES2.0 Flag 12: 0x{:02X}", self.region_byte_value)
+            format!("\nNES2.0 Flag 12: 0x{:02X}", self.region_byte_value)
         } else {
-            format!("\n    iNES Flag 9:  0x{:02X}", self.region_byte_value)
+            format!("\niNES Flag 9:  0x{:02X}", self.region_byte_value)
         };
 
         info!(

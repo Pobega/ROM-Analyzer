@@ -25,7 +25,7 @@ impl GameGearAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
         let region_not_in_rom_header = if !self.region_found {
-            "\n  Note:         Region information not in ROM header, inferred from filename."
+            "\nNote:         Region information not in ROM header, inferred from filename."
         } else {
             ""
         };

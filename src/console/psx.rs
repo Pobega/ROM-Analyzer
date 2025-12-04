@@ -18,7 +18,7 @@ impl PsxAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
         let executable_prefix_not_found = if self.code == "N/A" {
-            "\n    Note: Executable prefix (SLUS/SLES/SLPS) not found in header area. Requires main data track (.bin or .iso)."
+            "\nNote: Executable prefix (SLUS/SLES/SLPS) not found in header area. Requires main data track (.bin or .iso)."
         } else {
             ""
         };
