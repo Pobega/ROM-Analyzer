@@ -106,12 +106,11 @@ fn main() {
         let result = process_single_file(file_path, path, file_name);
         match result {
             Ok(analysis) => {
-                let printable: String = if cli.json {
-                    analysis.json()
+                if cli.json {
+                    println!("{}", analysis.json());
                 } else {
-                    analysis.print()
-                };
-                info!("{}", printable);
+                    info!("{}", analysis.print());
+                }
                 if check_region_mismatch(analysis.source_name(), analysis.region()) {
                     let inferred_region =
                         infer_region_from_filename(analysis.source_name()).unwrap_or("Unknown");
