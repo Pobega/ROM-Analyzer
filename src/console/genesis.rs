@@ -54,7 +54,7 @@ impl GenesisAnalysis {
 
     /// Return a JSON String of GenesisAnalysis.
     pub fn json(&self) -> String {
-        serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
+        serde_json::to_string_pretty(self).expect("Failed to serialize GenesisAnalysis to JSON")
     }
 }
 

@@ -35,7 +35,7 @@ impl SegaCdAnalysis {
 
     /// Return a JSON String of SegaCdAnalysis.
     pub fn json(&self) -> String {
-        serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
+        serde_json::to_string_pretty(self).expect("Failed to serialize SegaCdAnalysis to JSON")
     }
 }
 
