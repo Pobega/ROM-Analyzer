@@ -1,36 +1,35 @@
 use log::info;
 
 use crate::error::RomAnalyzerError;
-use crate::print_separator;
 use std::error::Error;
 
 /// Struct to hold the analysis results for a PSX ROM.
 #[derive(Debug, PartialEq, Clone)]
 pub struct PsxAnalysis {
-    /// The identified region name (e.g., "North America (NTSC-U)").
-    pub region: &'static str,
-    /// The identified region code (e.g., "SLUS").
-    pub code: String,
     /// The name of the source file.
     pub source_name: String,
+    /// The identified region name (e.g., "North America (NTSC-U)").
+    pub region: String,
+    /// The identified region code (e.g., "SLUS").
+    pub code: String,
 }
 
 impl PsxAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
-        print_separator();
-        info!("Source:       {}", self.source_name);
-        info!("System:       Sony PlayStation (PSX)");
-        info!("Region:       {}", self.region);
-        info!("Code:         {}", self.code);
-
-        if self.code == "N/A" {
-            info!(
-                "Note: Executable prefix (SLUS/SLES/SLPS) not found in header area. Requires main data track (.bin or .iso)."
-            );
-        }
-
-        print_separator();
+        let executable_prefix_not_found = if self.code == "N/A" {
+            "\n    Note: Executable prefix (SLUS/SLES/SLPS) not found in header area. Requires main data track (.bin or .iso)."
+        } else {
+            ""
+        };
+        info!(
+            "{}\n\
+             System:       Sony PlayStation (PSX)\n\
+             Region:       {}\n\
+             Code:         {}\
+             {}",
+            self.source_name, self.region, self.code, executable_prefix_not_found
+        );
     }
 }
 
@@ -68,7 +67,7 @@ pub fn analyze_psx_data(data: &[u8], source_name: &str) -> Result<PsxAnalysis, B
     }
 
     Ok(PsxAnalysis {
-        region: region_name,
+        region: region_name.to_string(),
         code: found_code,
         source_name: source_name.to_string(),
     })

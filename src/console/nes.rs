@@ -4,7 +4,6 @@
 use std::error::Error;
 
 use crate::error::RomAnalyzerError;
-use crate::print_separator;
 use log::info;
 
 const INES_REGION_BYTE: usize = 9;
@@ -19,29 +18,32 @@ const NES2_FORMAT_EXPECTED_VALUE: u8 = 0x08;
 /// Struct to hold the analysis results for a NES ROM.
 #[derive(Debug, PartialEq, Clone)]
 pub struct NesAnalysis {
-    /// The identified region name (e.g., "NTSC (USA/Japan)").
-    pub region: &'static str,
-    /// Whether the ROM header is in NES 2.0 format.
-    pub is_nes2_format: bool,
-    /// The raw byte value used for region determination (from iNES flag 9 or NES2 flag 12).
-    pub region_byte_value: u8,
     /// The name of the source file.
     pub source_name: String,
+    /// The identified region name (e.g., "NTSC (USA/Japan)").
+    pub region: String,
+    /// The raw byte value used for region determination (from iNES flag 9 or NES2 flag 12).
+    pub region_byte_value: u8,
+    /// Whether the ROM header is in NES 2.0 format.
+    pub is_nes2_format: bool,
 }
 
 impl NesAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
-        print_separator();
-        info!("Source:       {}", self.source_name);
-        info!("System:       Nintendo Entertainment System (NES)");
-        info!("Region:       {}", self.region);
-        if self.is_nes2_format {
-            info!("NES2.0 Flag 12: 0x{:02X}", self.region_byte_value);
+        let nes_flag_display = if self.is_nes2_format {
+            format!("\n    NES2.0 Flag 12: 0x{:02X}", self.region_byte_value)
         } else {
-            info!("iNES Flag 9:  0x{:02X}", self.region_byte_value);
-        }
-        print_separator();
+            format!("\n    iNES Flag 9:  0x{:02X}", self.region_byte_value)
+        };
+
+        info!(
+            "{}\n\
+             System:       Nintendo Entertainment System (NES)\n\
+             Region:       {}\
+             {}",
+            self.source_name, self.region, nes_flag_display
+        );
     }
 }
 
@@ -96,7 +98,7 @@ pub fn analyze_nes_data(data: &[u8], source_name: &str) -> Result<NesAnalysis, B
     let region_name = get_nes_region_name(region_byte_val, is_nes2_format);
 
     Ok(NesAnalysis {
-        region: region_name,
+        region: region_name.to_string(),
         is_nes2_format,
         region_byte_value: region_byte_val,
         source_name: source_name.to_string(),

@@ -4,8 +4,6 @@ pub mod dispatcher;
 pub mod error;
 pub mod region;
 
-use log::info;
-
 use crate::console::gamegear::GameGearAnalysis;
 use crate::console::gb::GbAnalysis;
 use crate::console::gba::GbaAnalysis;
@@ -29,10 +27,6 @@ pub const SUPPORTED_ROM_EXTENSIONS: &[&str] = &[
     ".scd", // Sega CD
     ".iso", ".bin", ".img", ".psx", // CD Systems
 ];
-
-pub fn print_separator() {
-    info!("{}", "-".repeat(40));
-}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum RomAnalysisResult {

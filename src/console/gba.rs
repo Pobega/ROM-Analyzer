@@ -5,35 +5,34 @@ use std::error::Error;
 use log::info;
 
 use crate::error::RomAnalyzerError;
-use crate::print_separator;
 
 /// Struct to hold the analysis results for a GBA ROM.
 #[derive(Debug, PartialEq, Clone)]
 pub struct GbaAnalysis {
+    /// The name of the source file.
+    pub source_name: String,
+    /// The identified region name (e.g., "Japan").
+    pub region: String,
     /// The game title extracted from the ROM header.
     pub game_title: String,
     /// The game code extracted from the ROM header.
     pub game_code: String,
     /// The maker code extracted from the ROM header.
     pub maker_code: String,
-    /// The identified region name (e.g., "Japan").
-    pub region: String,
-    /// The name of the source file.
-    pub source_name: String,
 }
 
 impl GbaAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
-        print_separator();
-        info!("Source:       {}", self.source_name);
-        info!("System:       Game Boy Advance (GBA)");
-        info!("Game Title:   {}", self.game_title);
-        info!("Game Code:    {}", self.game_code);
-        info!("Maker Code:   {}", self.maker_code);
-        info!("Region:       {}", self.region);
-
-        print_separator();
+        info!(
+            "{}\n\
+             System:       Game Boy Advance (GBA)\n\
+             Game Title:   {}\n\
+             Game Code:    {}\n\
+             Maker Code:   {}\n\
+             Region:       {}",
+            self.source_name, self.game_title, self.game_code, self.maker_code, self.region
+        );
     }
 }
 

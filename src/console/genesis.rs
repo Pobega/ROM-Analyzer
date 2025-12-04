@@ -1,7 +1,6 @@
 /// Genesis header documentation referenced here:
 /// https://plutiedev.com/rom-header#system
 use crate::error::RomAnalyzerError;
-use crate::print_separator;
 use log::{error, info};
 use std::error::Error;
 
@@ -16,35 +15,38 @@ const REGION_CODE_BYTE: usize = 0x1F0;
 /// Struct to hold the analysis results for a Sega cartridge (Genesis/Mega Drive) ROM.
 #[derive(Debug, PartialEq, Clone)]
 pub struct GenesisAnalysis {
+    /// The name of the source file.
+    pub source_name: String,
+    /// The identified region name (e.g., "USA (NTSC-U)").
+    pub region: String,
+    /// The raw region code byte.
+    pub region_code_byte: u8,
     /// The detected console name (e.g., "SEGA MEGA DRIVE", "SEGA GENESIS").
     pub console_name: String,
     /// The domestic game title extracted from the ROM header.
     pub game_title_domestic: String,
     /// The international game title extracted from the ROM header.
     pub game_title_international: String,
-    /// The raw region code byte.
-    pub region_code_byte: u8,
-    /// The identified region name (e.g., "USA (NTSC-U)").
-    pub region: String,
-    /// The name of the source file.
-    pub source_name: String,
 }
 
 impl GenesisAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
-        print_separator();
-        info!("Source:       {}", self.source_name);
-        info!("System:       {}", self.console_name);
-        info!("Game Title (Domestic): {}", self.game_title_domestic);
-        info!("Game Title (Int.):   {}", self.game_title_international);
         info!(
-            "Region Code:  0x{:02X} ('{}')",
-            self.region_code_byte, self.region_code_byte as char
+            "{}\n\
+             System:       {}\n\
+             Game Title (Domestic): {}\n\
+             Game Title (Int.):   {}\n\
+             Region Code:  0x{:02X} ('{}')\n\
+             Region:       {}",
+            self.source_name,
+            self.console_name,
+            self.game_title_domestic,
+            self.game_title_international,
+            self.region_code_byte,
+            self.region_code_byte as char,
+            self.region
         );
-        info!("Region:       {}", self.region);
-
-        print_separator();
     }
 }
 

@@ -5,7 +5,6 @@ use std::error::Error;
 use log::info;
 
 use crate::error::RomAnalyzerError;
-use crate::print_separator;
 
 const GB_TITLE_START: usize = 0x134;
 const GB_TITLE_END: usize = 0x143;
@@ -17,29 +16,29 @@ const GBC_TITLE_END: usize = 0x13F;
 /// Struct to hold the analysis results for a Game Boy ROM.
 #[derive(Debug, PartialEq, Clone)]
 pub struct GbAnalysis {
+    /// The name of the source file.
+    pub source_name: String,
+    /// The identified region name (e.g., "Japan").
+    pub region: String,
     /// The identified system type (e.g., "Game Boy (GB)" or "Game Boy Color (GBC)").
     pub system_type: String,
     /// The game title extracted from the ROM header.
     pub game_title: String,
     /// The raw destination code byte.
     pub destination_code: u8,
-    /// The identified region name (e.g., "Japan").
-    pub region: String,
-    /// The name of the source file.
-    pub source_name: String,
 }
 
 impl GbAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
-        print_separator();
-        info!("Source:       {}", self.source_name);
-        info!("System:       {}", self.system_type);
-        info!("Game Title:   {}", self.game_title);
-        info!("Region Code:  0x{:02X}", self.destination_code);
-        info!("Region:       {}", self.region);
-
-        print_separator();
+        info!(
+            "{}\n\
+             System:       {}\n\
+             Game Title:   {}\n\
+             Region Code:  0x{:02X}\n\
+             Region:       {}",
+            self.source_name, self.system_type, self.game_title, self.destination_code, self.region
+        );
     }
 }
 

@@ -4,7 +4,6 @@ use std::error::Error;
 
 use log::{debug, info};
 
-use crate::print_separator;
 use crate::region::infer_region_from_filename;
 
 const POSSIBLE_HEADER_STARTS: &[usize] = &[0x7ff0, 0x3ff0, 0x1ff0];
@@ -14,10 +13,10 @@ const SEGA_HEADER_SIGNATURE: &[u8] = b"TMR SEGA";
 /// Struct to hold the analysis results for a Game Gear ROM.
 #[derive(Debug, PartialEq, Clone)]
 pub struct GameGearAnalysis {
-    /// The identified region name (e.g., "USA").
-    pub region: String,
     /// The name of the source file.
     pub source_name: String,
+    /// The identified region name (e.g., "USA").
+    pub region: String,
     /// If the region is found in the header, or inferred from the filename.
     pub region_found: bool,
 }
@@ -25,14 +24,18 @@ pub struct GameGearAnalysis {
 impl GameGearAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
-        print_separator();
-        info!("Source:       {}", self.source_name);
-        info!("System:       Sega Game Gear");
-        info!("Region:       {}", self.region);
-        if !self.region_found {
-            info!("Note:         Region information not in ROM header, inferred from filename.");
-        }
-        print_separator();
+        let region_not_in_rom_header = if !self.region_found {
+            "\n  Note:         Region information not in ROM header, inferred from filename."
+        } else {
+            ""
+        };
+        info!(
+            "{}\n\
+             System:       Sega Game Gear\n\
+             Region:       {}\
+             {}",
+            self.source_name, self.region, region_not_in_rom_header
+        );
     }
 }
 
