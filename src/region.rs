@@ -144,4 +144,87 @@ mod tests {
         assert_eq!(normalize_header_region("UNKNOWN"), None);
         assert_eq!(normalize_header_region("  random text  "), None);
     }
+
+    #[test]
+    fn test_check_region_mismatch_no_mismatch_japan() {
+        // Filename indicates Japan, header is also Japan
+        assert_eq!(check_region_mismatch("game (J).zip", "JAPAN"), false);
+        assert_eq!(check_region_mismatch("game (Japan).zip", "NTSC-J"), false);
+        assert_eq!(check_region_mismatch("game (J).zip", "SLPS-00001"), false);
+    }
+
+    #[test]
+    fn test_check_region_mismatch_no_mismatch_usa() {
+        // Filename indicates USA, header is also USA
+        assert_eq!(check_region_mismatch("game (U).zip", "USA"), false);
+        assert_eq!(check_region_mismatch("game (USA).zip", "AMERICA"), false);
+        assert_eq!(check_region_mismatch("game (U).zip", "SLUS-00001"), false);
+    }
+
+    #[test]
+    fn test_check_region_mismatch_no_mismatch_europe() {
+        // Filename indicates Europe, header is also Europe
+        assert_eq!(check_region_mismatch("game (E).zip", "EUROPE"), false);
+        assert_eq!(check_region_mismatch("game (Europe).zip", "PAL"), false);
+        assert_eq!(check_region_mismatch("game (E).zip", "SLES-00001"), false);
+    }
+
+    #[test]
+    fn test_check_region_mismatch_mismatch_japan_usa() {
+        // Filename indicates Japan, header indicates USA
+        assert_eq!(check_region_mismatch("game (J).zip", "USA"), true);
+        assert_eq!(check_region_mismatch("game (Japan).zip", "AMERICA"), true);
+    }
+
+    #[test]
+    fn test_check_region_mismatch_mismatch_usa_europe() {
+        // Filename indicates USA, header indicates Europe
+        assert_eq!(check_region_mismatch("game (U).zip", "EUROPE"), true);
+        assert_eq!(check_region_mismatch("game (USA).zip", "PAL"), true);
+    }
+
+    #[test]
+    fn test_check_region_mismatch_mismatch_europe_japan() {
+        // Filename indicates Europe, header indicates Japan
+        assert_eq!(check_region_mismatch("game (E).zip", "JAPAN"), true);
+        assert_eq!(check_region_mismatch("game (Europe).zip", "NTSC-J"), true);
+    }
+
+    #[test]
+    fn test_check_region_mismatch_filename_has_region_header_unknown() {
+        // Filename indicates a region, but header is unknown/unnormalized
+        assert_eq!(
+            check_region_mismatch("game (J).zip", "Some random text"),
+            true
+        );
+        assert_eq!(
+            check_region_mismatch("game (U).zip", "REGION_UNKNOWN"),
+            true
+        );
+        assert_eq!(check_region_mismatch("game (E).zip", "NO_MATCH"), true);
+    }
+
+    #[test]
+    fn test_check_region_mismatch_filename_unknown_header_has_region() {
+        // Filename is generic, header indicates a region
+        assert_eq!(check_region_mismatch("game.zip", "JAPAN"), true);
+        assert_eq!(check_region_mismatch("another game.zip", "USA"), true);
+        assert_eq!(check_region_mismatch("game_title", "EUROPE"), true);
+    }
+
+    #[test]
+    fn test_check_region_mismatch_both_unknown() {
+        // Neither filename nor header can be normalized to a region
+        assert_eq!(check_region_mismatch("game.zip", "Some random text"), false);
+        assert_eq!(check_region_mismatch("another game.zip", "UNKNOWN"), false);
+        assert_eq!(check_region_mismatch("game_title", "NO_MATCH"), false);
+    }
+
+    #[test]
+    fn test_check_region_mismatch_case_insensitivity_filename() {
+        // Test case insensitivity for filename inference
+        assert_eq!(check_region_mismatch("game (JapAn).zip", "JAPAN"), false);
+        assert_eq!(check_region_mismatch("game (uSa).zip", "USA"), false);
+        assert_eq!(check_region_mismatch("game (EuRoPe).zip", "EUROPE"), false);
+    }
 }
