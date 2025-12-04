@@ -5,7 +5,6 @@ use std::error::Error;
 use log::{error, info};
 
 use crate::error::RomAnalyzerError;
-use crate::print_separator;
 
 /// Struct to hold the analysis results for a Sega CD ROM.
 #[derive(Debug, PartialEq, Clone)]
@@ -23,14 +22,14 @@ pub struct SegaCdAnalysis {
 impl SegaCdAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
-        print_separator();
-        info!("Source:       {}", self.source_name);
-        info!("System:       Sega CD / Mega CD");
-        info!("Signature:    {}", self.signature);
-        info!("Region Code:  0x{:02X}", self.region_code);
-        info!("Region:       {}", self.region);
-
-        print_separator();
+        info!(
+            "{}\n\
+             System:       Sega CD / Mega CD\n\
+             Signature:    {}\n\
+             Region Code:  0x{:02X}\n\
+             Region:       {}",
+            self.source_name, self.signature, self.region_code, self.region
+        );
     }
 }
 

@@ -3,30 +3,29 @@
 use log::info;
 
 use crate::error::RomAnalyzerError;
-use crate::print_separator;
 use std::error::Error;
 
 /// Struct to hold the analysis results for a Master System ROM.
 #[derive(Debug, PartialEq, Clone)]
 pub struct MasterSystemAnalysis {
-    /// The raw region byte value.
-    pub region_byte: u8,
-    /// The identified region name (e.g., "Japan (NTSC)").
-    pub region: String,
     /// The name of the source file.
     pub source_name: String,
+    /// The identified region name (e.g., "Japan (NTSC)").
+    pub region: String,
+    /// The raw region byte value.
+    pub region_byte: u8,
 }
 
 impl MasterSystemAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
-        print_separator();
-        info!("Source:       {}", self.source_name);
-        info!("System:       Sega Master System");
-        info!("Region Code:  0x{:02X}", self.region_byte);
-        info!("Region:       {}", self.region);
-
-        print_separator();
+        info!(
+            "{}\n\
+             System:       Sega Master System\n\
+             Region Code:  0x{:02X}\n\
+             Region:       {}",
+            self.source_name, self.region_byte, self.region
+        );
     }
 }
 

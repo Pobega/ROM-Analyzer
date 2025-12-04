@@ -4,7 +4,6 @@ use log::{error, info};
 use std::error::Error;
 
 use crate::error::RomAnalyzerError;
-use crate::print_separator;
 
 // Map Mode byte offset relative to the header start (0x7FC0 for LoROM, 0xFFC0 for HiROM)
 const MAP_MODE_OFFSET: usize = 0x15;
@@ -31,14 +30,15 @@ pub struct SnesAnalysis {
 impl SnesAnalysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
-        print_separator();
-        info!("Source:       {}", self.source_name);
-        info!("System:       Super Nintendo (SNES)");
-        info!("Game Title:   {}", self.game_title);
-        info!("Mapping:      {}", self.mapping_type);
-        info!("Region Code:  0x{:02X}", self.region_code);
-        info!("Region:       {}", self.region);
-        print_separator();
+        info!(
+            "{}\n\
+             System:       Super Nintendo (SNES)\n\
+             Game Title:   {}\n\
+             Mapping:      {}\n\
+             Region Code:  0x{:02X}\n\
+             Region:       {}",
+            self.source_name, self.game_title, self.mapping_type, self.region_code, self.region
+        );
     }
 }
 

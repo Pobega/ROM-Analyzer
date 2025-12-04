@@ -5,29 +5,28 @@ use std::error::Error;
 use log::info;
 
 use crate::error::RomAnalyzerError;
-use crate::print_separator;
 
 /// Struct to hold the analysis results for an N64 ROM.
 #[derive(Debug, PartialEq, Clone)]
 pub struct N64Analysis {
+    /// The name of the source file.
+    pub source_name: String,
     /// The identified region name (e.g., "USA / NTSC").
     pub region: String,
     /// The country code extracted from the ROM header (e.g., "E", "J").
     pub country_code: String,
-    /// The name of the source file.
-    pub source_name: String,
 }
 
 impl N64Analysis {
     /// Prints the analysis results to the console.
     pub fn print(&self) {
-        print_separator();
-        info!("Source:       {}", self.source_name);
-        info!("System:       Nintendo 64 (N64)");
-        info!("Region:       {}", self.region);
-        info!("Code:         {}", self.country_code);
-
-        print_separator();
+        info!(
+            "{}\n\
+             System:       Nintendo 64 (N64)\n\
+             Region:       {}\n\
+             Code:         {}",
+            self.source_name, self.region, self.country_code
+        );
     }
 }
 
