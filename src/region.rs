@@ -54,32 +54,11 @@ pub fn normalize_header_region(header_text: &str) -> Option<&'static str> {
 }
 
 /// Compare the inferred region (via filename) to the region in the ROM's header.
-#[macro_export]
-macro_rules! check_region_mismatch {
-    ($source_name:expr, $region_name:expr) => {
-        let inferred_region = $crate::region::infer_region_from_filename($source_name);
-        let header_region_norm = $crate::region::normalize_header_region($region_name);
+pub fn check_region_mismatch(source_name: &str, region_name: &str) -> bool {
+    let inferred_region = infer_region_from_filename(source_name);
+    let header_region_norm = normalize_header_region(region_name);
 
-        if let (Some(inferred), Some(header)) = (inferred_region, header_region_norm) {
-            if inferred != header {
-                ::log::error!(
-                    "\n*** WARNING: POSSIBLE REGION MISMATCH! ***\
-                     \nSource File:  {}\
-                     \nFilename suggests: {}\
-                     \nROM Header claims: {} (Header detail: '{}'\
-                     \nThe ROM may be mislabeled or have been patched.\
-                     \n*******************************************",
-                    ::std::path::Path::new($source_name)
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy(),
-                    inferred,
-                    header,
-                    $region_name
-                );
-            }
-        }
-    };
+    inferred_region != header_region_norm
 }
 
 #[cfg(test)]
