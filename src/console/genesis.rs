@@ -6,6 +6,7 @@ use log::error;
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
+use crate::region::check_region_mismatch;
 
 const SYSTEM_TYPE_START: usize = 0x100;
 const SYSTEM_TYPE_END: usize = 0x110;
@@ -22,6 +23,8 @@ pub struct GenesisAnalysis {
     pub source_name: String,
     /// The identified region name (e.g., "USA (NTSC-U)").
     pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
     /// The raw region code byte.
     pub region_code_byte: u8,
     /// The detected console name (e.g., "SEGA MEGA DRIVE", "SEGA GENESIS").
@@ -120,13 +123,16 @@ pub fn analyze_genesis_data(
     }
     .to_string();
 
+    let region_mismatch = check_region_mismatch(source_name, &region_name);
+
     Ok(GenesisAnalysis {
+        source_name: source_name.to_string(),
+        region: region_name,
+        region_mismatch,
+        region_code_byte,
         console_name,
         game_title_domestic,
         game_title_international,
-        region_code_byte,
-        region: region_name,
-        source_name: source_name.to_string(),
     })
 }
 

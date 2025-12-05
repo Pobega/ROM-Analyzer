@@ -9,7 +9,7 @@ use rom_analyzer::RomAnalysisResult;
 use rom_analyzer::archive::chd::{ChdAnalysis, analyze_chd_file};
 use rom_analyzer::archive::zip::process_zip_file;
 use rom_analyzer::dispatcher::process_rom_data;
-use rom_analyzer::region::{check_region_mismatch, infer_region_from_filename};
+use rom_analyzer::region::infer_region_from_filename;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -112,11 +112,11 @@ fn main() {
                     json_results.push(analysis.clone());
                 } else {
                     info!("{}", analysis.print());
-                    if check_region_mismatch(analysis.source_name(), analysis.region()) {
+                    if analysis.region_mismatch() {
                         let inferred_region =
                             infer_region_from_filename(analysis.source_name()).unwrap_or("Unknown");
                         warn!(
-                            "~~~ POSSIBLE REGION MISMATCH ~~~\n\
+                            "POSSIBLE REGION MISMATCH\n\
                              Source file:          {}\n\
                              Filename suggests:    {}\n\
                              ROM Header claims:    {}\n\

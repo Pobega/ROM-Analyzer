@@ -5,6 +5,7 @@ use std::error::Error;
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
+use crate::region::check_region_mismatch;
 
 /// Struct to hold the analysis results for a GBA ROM.
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -13,6 +14,8 @@ pub struct GbaAnalysis {
     pub source_name: String,
     /// The identified region name (e.g., "Japan").
     pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
     /// The game title extracted from the ROM header.
     pub game_title: String,
     /// The game code extracted from the ROM header.
@@ -83,12 +86,15 @@ pub fn analyze_gba_data(data: &[u8], source_name: &str) -> Result<GbaAnalysis, B
     }
     .to_string();
 
+    let region_mismatch = check_region_mismatch(source_name, &region_name);
+
     Ok(GbaAnalysis {
+        source_name: source_name.to_string(),
+        region: region_name,
+        region_mismatch,
         game_title,
         game_code,
         maker_code,
-        region: region_name,
-        source_name: source_name.to_string(),
     })
 }
 

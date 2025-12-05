@@ -61,6 +61,21 @@ impl RomAnalysisResult {
         }
     }
 
+    pub fn source_name(&self) -> &str {
+        match self {
+            RomAnalysisResult::GameGear(a) => &a.source_name,
+            RomAnalysisResult::GB(a) => &a.source_name,
+            RomAnalysisResult::GBA(a) => &a.source_name,
+            RomAnalysisResult::Genesis(a) => &a.source_name,
+            RomAnalysisResult::MasterSystem(a) => &a.source_name,
+            RomAnalysisResult::N64(a) => &a.source_name,
+            RomAnalysisResult::NES(a) => &a.source_name,
+            RomAnalysisResult::PSX(a) => &a.source_name,
+            RomAnalysisResult::SegaCD(a) => &a.source_name,
+            RomAnalysisResult::SNES(a) => &a.source_name,
+        }
+    }
+
     pub fn region(&self) -> &str {
         match self {
             RomAnalysisResult::GameGear(a) => &a.region,
@@ -76,18 +91,18 @@ impl RomAnalysisResult {
         }
     }
 
-    pub fn source_name(&self) -> &str {
+    pub fn region_mismatch(&self) -> bool {
         match self {
-            RomAnalysisResult::GameGear(a) => &a.source_name,
-            RomAnalysisResult::GB(a) => &a.source_name,
-            RomAnalysisResult::GBA(a) => &a.source_name,
-            RomAnalysisResult::Genesis(a) => &a.source_name,
-            RomAnalysisResult::MasterSystem(a) => &a.source_name,
-            RomAnalysisResult::N64(a) => &a.source_name,
-            RomAnalysisResult::NES(a) => &a.source_name,
-            RomAnalysisResult::PSX(a) => &a.source_name,
-            RomAnalysisResult::SegaCD(a) => &a.source_name,
-            RomAnalysisResult::SNES(a) => &a.source_name,
+            RomAnalysisResult::GameGear(a) => a.region_mismatch,
+            RomAnalysisResult::GB(a) => a.region_mismatch,
+            RomAnalysisResult::GBA(a) => a.region_mismatch,
+            RomAnalysisResult::Genesis(a) => a.region_mismatch,
+            RomAnalysisResult::MasterSystem(a) => a.region_mismatch,
+            RomAnalysisResult::N64(a) => a.region_mismatch,
+            RomAnalysisResult::NES(a) => a.region_mismatch,
+            RomAnalysisResult::PSX(a) => a.region_mismatch,
+            RomAnalysisResult::SegaCD(a) => a.region_mismatch,
+            RomAnalysisResult::SNES(a) => a.region_mismatch,
         }
     }
 }

@@ -3,6 +3,7 @@ use std::error::Error;
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
+use crate::region::check_region_mismatch;
 
 /// Struct to hold the analysis results for a PSX ROM.
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -11,6 +12,8 @@ pub struct PsxAnalysis {
     pub source_name: String,
     /// The identified region name (e.g., "North America (NTSC-U)").
     pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
     /// The identified region code (e.g., "SLUS").
     pub code: String,
 }
@@ -67,10 +70,13 @@ pub fn analyze_psx_data(data: &[u8], source_name: &str) -> Result<PsxAnalysis, B
         }
     }
 
+    let region_mismatch = check_region_mismatch(source_name, &region_name);
+
     Ok(PsxAnalysis {
-        region: region_name.to_string(),
-        code: found_code,
         source_name: source_name.to_string(),
+        region: region_name.to_string(),
+        region_mismatch,
+        code: found_code,
     })
 }
 

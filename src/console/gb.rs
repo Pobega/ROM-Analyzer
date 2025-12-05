@@ -5,6 +5,7 @@ use std::error::Error;
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
+use crate::region::check_region_mismatch;
 
 const GB_TITLE_START: usize = 0x134;
 const GB_TITLE_END: usize = 0x143;
@@ -20,6 +21,8 @@ pub struct GbAnalysis {
     pub source_name: String,
     /// The identified region name (e.g., "Japan").
     pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
     /// The identified system type (e.g., "Game Boy (GB)" or "Game Boy Color (GBC)").
     pub system_type: String,
     /// The game title extracted from the ROM header.
@@ -80,12 +83,15 @@ pub fn analyze_gb_data(data: &[u8], source_name: &str) -> Result<GbAnalysis, Box
         _ => "Unknown Code",
     };
 
+    let region_mismatch = check_region_mismatch(source_name, region_name);
+
     Ok(GbAnalysis {
+        source_name: source_name.to_string(),
+        region: region_name.to_string(),
+        region_mismatch,
         system_type: system_type.to_string(),
         game_title,
         destination_code,
-        region: region_name.to_string(),
-        source_name: source_name.to_string(),
     })
 }
 

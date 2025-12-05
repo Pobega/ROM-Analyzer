@@ -5,7 +5,7 @@ use std::error::Error;
 use log::debug;
 use serde::Serialize;
 
-use crate::region::infer_region_from_filename;
+use crate::region::{check_region_mismatch, infer_region_from_filename};
 
 const POSSIBLE_HEADER_STARTS: &[usize] = &[0x7ff0, 0x3ff0, 0x1ff0];
 const REGION_CODE_OFFSET: usize = 0xf;
@@ -18,6 +18,8 @@ pub struct GameGearAnalysis {
     pub source_name: String,
     /// The identified region name (e.g., "USA").
     pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
     /// If the region is found in the header, or inferred from the filename.
     pub region_found: bool,
 }
@@ -89,9 +91,12 @@ pub fn analyze_gamegear_data(
             .unwrap_or("Unknown".to_string());
     }
 
+    let region_mismatch = check_region_mismatch(source_name, &region);
+
     Ok(GameGearAnalysis {
-        region,
         source_name: source_name.to_string(),
+        region,
+        region_mismatch,
         region_found,
     })
 }

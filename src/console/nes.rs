@@ -6,6 +6,7 @@ use std::error::Error;
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
+use crate::region::check_region_mismatch;
 
 const INES_REGION_BYTE: usize = 9;
 const INES_REGION_MASK: u8 = 0x01;
@@ -23,6 +24,8 @@ pub struct NesAnalysis {
     pub source_name: String,
     /// The identified region name (e.g., "NTSC (USA/Japan)").
     pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
     /// The raw byte value used for region determination (from iNES flag 9 or NES2 flag 12).
     pub region_byte_value: u8,
     /// Whether the ROM header is in NES 2.0 format.
@@ -97,12 +100,14 @@ pub fn analyze_nes_data(data: &[u8], source_name: &str) -> Result<NesAnalysis, B
     }
 
     let region_name = get_nes_region_name(region_byte_val, is_nes2_format);
+    let region_mismatch = check_region_mismatch(source_name, &region_name);
 
     Ok(NesAnalysis {
-        region: region_name.to_string(),
-        is_nes2_format,
-        region_byte_value: region_byte_val,
         source_name: source_name.to_string(),
+        region: region_name.to_string(),
+        region_mismatch,
+        region_byte_value: region_byte_val,
+        is_nes2_format,
     })
 }
 

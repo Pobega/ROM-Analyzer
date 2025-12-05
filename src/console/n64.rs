@@ -5,6 +5,7 @@ use std::error::Error;
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
+use crate::region::check_region_mismatch;
 
 /// Struct to hold the analysis results for an N64 ROM.
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -13,6 +14,8 @@ pub struct N64Analysis {
     pub source_name: String,
     /// The identified region name (e.g., "USA / NTSC").
     pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
     /// The country code extracted from the ROM header (e.g., "E", "J").
     pub country_code: String,
 }
@@ -61,10 +64,13 @@ pub fn analyze_n64_data(data: &[u8], source_name: &str) -> Result<N64Analysis, B
     }
     .to_string();
 
+    let region_mismatch = check_region_mismatch(source_name, &region_name);
+
     Ok(N64Analysis {
-        region: region_name,
-        country_code,
         source_name: source_name.to_string(),
+        region: region_name,
+        region_mismatch,
+        country_code,
     })
 }
 
