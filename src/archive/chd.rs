@@ -6,8 +6,8 @@ use std::path::Path;
 use chd::Chd;
 use log::debug;
 
-use crate::console::psx::{self, PsxAnalysis};
-use crate::console::segacd::{self, SegaCdAnalysis};
+use crate::console::psx::PsxAnalysis;
+use crate::console::segacd::SegaCdAnalysis;
 
 // We only need the first few KB for header analysis for PSX and SegaCD.
 const MAX_HEADER_SIZE: usize = 0x20000; // 128KB
@@ -17,7 +17,7 @@ pub enum ChdAnalysis {
     PSX(PsxAnalysis),
 }
 
-pub fn analyze_chd_file(filepath: &Path, source_name: &str) -> Result<ChdAnalysis, Box<dyn Error>> {
+pub fn analyze_chd_file(filepath: &Path) -> Result<Vec<u8>, Box<dyn Error>> {
     let file = File::open(filepath)?;
     let mut reader = BufReader::new(file);
     let mut chd = Chd::open(&mut reader, None)?;
@@ -59,19 +59,5 @@ pub fn analyze_chd_file(filepath: &Path, source_name: &str) -> Result<ChdAnalysi
         decompressed_data.len()
     );
 
-    // --- Console Dispatch Logic ---
-    // Check for "SEGA CD" signature at offset 0x100 for Sega CD
-    const SEGA_CD_SIGNATURE_OFFSET: usize = 0x100;
-    const SEGA_CD_SIGNATURE: &[u8] = b"SEGA CD";
-    if decompressed_data.len() >= SEGA_CD_SIGNATURE_OFFSET + SEGA_CD_SIGNATURE.len()
-        && decompressed_data
-            [SEGA_CD_SIGNATURE_OFFSET..SEGA_CD_SIGNATURE_OFFSET + SEGA_CD_SIGNATURE.len()]
-            == *SEGA_CD_SIGNATURE
-    {
-        let analysis = segacd::analyze_segacd_data(&decompressed_data, source_name)?;
-        Ok(ChdAnalysis::SegaCD(analysis))
-    } else {
-        let analysis = psx::analyze_psx_data(&decompressed_data, source_name)?;
-        Ok(ChdAnalysis::PSX(analysis))
-    }
+    Ok(decompressed_data)
 }

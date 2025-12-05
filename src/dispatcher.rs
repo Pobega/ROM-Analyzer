@@ -1,6 +1,10 @@
 use std::error::Error;
+use std::fs::{self, File};
+use std::path::Path;
 
 use crate::RomAnalysisResult;
+use crate::archive::chd::analyze_chd_file;
+use crate::archive::zip::process_zip_file;
 use crate::console::gamegear;
 use crate::console::gb;
 use crate::console::gba;
@@ -29,12 +33,9 @@ enum RomFileType {
 }
 
 fn get_rom_file_type(name: &str) -> RomFileType {
-    let ext = std::path::Path::new(name)
-        .extension()
-        .and_then(std::ffi::OsStr::to_str)
-        .unwrap_or_default();
+    let ext = get_file_extension_lowercase(name);
 
-    match ext.to_lowercase().as_str() {
+    match ext.as_str() {
         "nes" => RomFileType::Nes,
         "smc" | "sfc" => RomFileType::Snes,
         "n64" | "v64" | "z64" => RomFileType::N64,
@@ -44,30 +45,60 @@ fn get_rom_file_type(name: &str) -> RomFileType {
         "gba" => RomFileType::GameBoyAdvance,
         "md" | "gen" | "32x" => RomFileType::Genesis,
         "scd" => RomFileType::SegaCD,
-        "iso" | "bin" | "img" | "psx" => RomFileType::CDSystem,
+        "iso" | "bin" | "img" | "psx" | "chd" => RomFileType::CDSystem,
         _ => RomFileType::Unknown,
     }
 }
 
-pub fn process_rom_data(data: Vec<u8>, name: &str) -> Result<RomAnalysisResult, Box<dyn Error>> {
-    let rom_data = match get_rom_file_type(name) {
-        RomFileType::Nes => nes::analyze_nes_data(&data, name).map(RomAnalysisResult::NES),
-        RomFileType::Snes => snes::analyze_snes_data(&data, name).map(RomAnalysisResult::SNES),
-        RomFileType::N64 => n64::analyze_n64_data(&data, name).map(RomAnalysisResult::N64),
-        RomFileType::MasterSystem => mastersystem::analyze_mastersystem_data(&data, name)
+fn get_file_extension_lowercase(file_path: &str) -> String {
+    Path::new(file_path)
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        .unwrap_or_default()
+        .to_lowercase()
+}
+
+/// Analyze the header data of a ROM file.
+///
+/// This function looks at the data of a ROM file and returns info based on the headers and
+/// filetype.
+pub fn analyze_rom_data(file_path: &str) -> Result<RomAnalysisResult, Box<dyn Error>> {
+    match get_file_extension_lowercase(file_path).as_str() {
+        "zip" => {
+            let file = File::open(file_path)?;
+            let (data, rom_file_name) = process_zip_file(file, file_path)?;
+            process_rom_data(data, &rom_file_name)
+        }
+        "chd" => {
+            let decompressed_chd = analyze_chd_file(Path::new(file_path))?;
+            process_rom_data(decompressed_chd, file_path)
+        }
+        _ => {
+            let data = fs::read(file_path)?;
+            process_rom_data(data, file_path)
+        }
+    }
+}
+
+fn process_rom_data(data: Vec<u8>, rom_path: &str) -> Result<RomAnalysisResult, Box<dyn Error>> {
+    let rom_data = match get_rom_file_type(rom_path) {
+        RomFileType::Nes => nes::analyze_nes_data(&data, rom_path).map(RomAnalysisResult::NES),
+        RomFileType::Snes => snes::analyze_snes_data(&data, rom_path).map(RomAnalysisResult::SNES),
+        RomFileType::N64 => n64::analyze_n64_data(&data, rom_path).map(RomAnalysisResult::N64),
+        RomFileType::MasterSystem => mastersystem::analyze_mastersystem_data(&data, rom_path)
             .map(RomAnalysisResult::MasterSystem),
         RomFileType::GameGear => {
-            gamegear::analyze_gamegear_data(&data, name).map(RomAnalysisResult::GameGear)
+            gamegear::analyze_gamegear_data(&data, rom_path).map(RomAnalysisResult::GameGear)
         }
-        RomFileType::GameBoy => gb::analyze_gb_data(&data, name).map(RomAnalysisResult::GB),
+        RomFileType::GameBoy => gb::analyze_gb_data(&data, rom_path).map(RomAnalysisResult::GB),
         RomFileType::GameBoyAdvance => {
-            gba::analyze_gba_data(&data, name).map(RomAnalysisResult::GBA)
+            gba::analyze_gba_data(&data, rom_path).map(RomAnalysisResult::GBA)
         }
         RomFileType::Genesis => {
-            genesis::analyze_genesis_data(&data, name).map(RomAnalysisResult::Genesis)
+            genesis::analyze_genesis_data(&data, rom_path).map(RomAnalysisResult::Genesis)
         }
         RomFileType::SegaCD => {
-            segacd::analyze_segacd_data(&data, name).map(RomAnalysisResult::SegaCD)
+            segacd::analyze_segacd_data(&data, rom_path).map(RomAnalysisResult::SegaCD)
         }
         RomFileType::CDSystem => {
             // Some cartridge formats (like Sega Genesis) use the .bin extension, which
@@ -84,18 +115,18 @@ pub fn process_rom_data(data: Vec<u8>, name: &str) -> Result<RomAnalysisResult, 
                     || data[SEGA_HEADER_START..SEGA_GENESIS_HEADER_END]
                         .starts_with(b"SEGA GENESIS"))
             {
-                genesis::analyze_genesis_data(&data, name).map(RomAnalysisResult::Genesis)
+                genesis::analyze_genesis_data(&data, rom_path).map(RomAnalysisResult::Genesis)
             } else if data.len() >= SEGA_CD_MIN_LEN
                 && data[SEGA_HEADER_START..SEGA_CD_SIGNATURE_END].eq_ignore_ascii_case(b"SEGA CD")
             {
-                segacd::analyze_segacd_data(&data, name).map(RomAnalysisResult::SegaCD)
+                segacd::analyze_segacd_data(&data, rom_path).map(RomAnalysisResult::SegaCD)
             } else {
-                psx::analyze_psx_data(&data, name).map(RomAnalysisResult::PSX)
+                psx::analyze_psx_data(&data, rom_path).map(RomAnalysisResult::PSX)
             }
         }
         RomFileType::Unknown => Err(Box::new(RomAnalyzerError::new(&format!(
             "Unrecognized ROM file extension for dispatch: {}",
-            name
+            rom_path
         )))
         .into()),
     };
@@ -127,6 +158,7 @@ mod tests {
         assert_eq!(get_rom_file_type("game.bin"), RomFileType::CDSystem);
         assert_eq!(get_rom_file_type("game.img"), RomFileType::CDSystem);
         assert_eq!(get_rom_file_type("game.psx"), RomFileType::CDSystem);
+        assert_eq!(get_rom_file_type("game.chd"), RomFileType::CDSystem);
         assert_eq!(get_rom_file_type("game.zip"), RomFileType::Unknown);
         assert_eq!(get_rom_file_type("game.txt"), RomFileType::Unknown);
     }
