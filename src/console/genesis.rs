@@ -1,5 +1,11 @@
-/// Genesis header documentation referenced here:
-/// https://plutiedev.com/rom-header#system
+//! Provides header analysis functionality for Sega Genesis (also known as Mega Drive) ROMs.
+//!
+//! This module can parse Genesis ROM headers to extract system type, game titles
+//! (domestic and international), and region information.
+//!
+//! Genesis header documentation referenced here:
+//! <https://plutiedev.com/rom-header#system>
+
 use std::error::Error;
 
 use log::error;
@@ -56,8 +62,23 @@ impl GenesisAnalysis {
     }
 }
 
-/// Analyzes Sega cartridge ROM data and returns a struct containing the analysis results.
-/// This function is now pure and does not perform console output.
+/// Analyzes Sega Genesis/Mega Drive ROM data.
+///
+/// This function reads the ROM header to extract the console name (e.g., "SEGA MEGA DRIVE", "SEGA
+/// GENESIS"), domestic and international game titles, and the region code byte. It then maps the
+/// region code to a human-readable region name and performs a region mismatch check against the
+/// `source_name`.  A warning is logged if an unexpected Sega header signature is found.
+///
+/// # Arguments
+///
+/// * `data` - A byte slice (`&[u8]`) containing the raw ROM data.
+/// * `source_name` - The name of the ROM file, used for logging and region mismatch checks.
+///
+/// # Returns
+///
+/// A `Result` which is:
+/// - `Ok(GenesisAnalysis)` containing the detailed analysis results.
+/// - `Err(Box<dyn Error>)` if the ROM data is too small to contain a valid Sega header.
 pub fn analyze_genesis_data(
     data: &[u8],
     source_name: &str,

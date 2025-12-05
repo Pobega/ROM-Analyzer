@@ -1,3 +1,14 @@
+//! The `rom_analyzer` crate provides functionality to analyze various ROM file formats from
+//! classic video game consoles. It aims to extract metadata such as region, game title, publisher,
+//! and other console-specific details from ROM headers and file names.
+//!
+//! This library supports a range of console ROMs, including but not limited to NES, SNES, N64,
+//! Sega Master System, Game Gear, Game Boy, Game Boy Advance, Sega Genesis, and Sega CD.  It can
+//! also handle ROMs packaged as ZIP or CHD (Compressed Hunks of Data) archives.
+//!
+//! The primary entry point for analysis is the `analyze_rom_data` function, which takes a file
+//! path and returns a `RomAnalysisResult` enum containing console-specific analysis data.
+
 pub mod archive;
 pub mod console;
 pub mod error;
@@ -23,6 +34,8 @@ use crate::console::segacd::{self, SegaCdAnalysis};
 use crate::console::snes::{self, SnesAnalysis};
 use crate::error::RomAnalyzerError;
 
+/// A list of file extensions that the ROM analyzer supports.
+/// These extensions are used to determine the type of ROM file being processed.
 pub const SUPPORTED_ROM_EXTENSIONS: &[&str] = &[
     ".nes", // NES
     ".smc", ".sfc", // SNES
@@ -36,6 +49,7 @@ pub const SUPPORTED_ROM_EXTENSIONS: &[&str] = &[
     ".iso", ".bin", ".img", ".psx", // CD Systems
 ];
 
+/// Represents the analysis result for a ROM file.
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(tag = "console")]
 pub enum RomAnalysisResult {
@@ -51,8 +65,10 @@ pub enum RomAnalysisResult {
     SNES(SnesAnalysis),
 }
 
+/// Represents the type of ROM file based on its extension.
+/// This enum is used internally to dispatch to the correct analysis logic.
 #[derive(Debug, PartialEq, Eq)]
-enum RomFileType {
+pub enum RomFileType {
     Nes,
     Snes,
     N64,
@@ -66,6 +82,16 @@ enum RomFileType {
     Unknown,
 }
 
+/// Extracts the file extension from a given file path and converts it to lowercase.
+///
+/// # Arguments
+///
+/// * `file_path` - The path to the file.
+///
+/// # Returns
+///
+/// A `String` containing the lowercase file extension, or an empty string if no
+/// extension is found.
 fn get_file_extension_lowercase(file_path: &str) -> String {
     Path::new(file_path)
         .extension()
@@ -74,7 +100,46 @@ fn get_file_extension_lowercase(file_path: &str) -> String {
         .to_lowercase()
 }
 
-fn get_rom_file_type(name: &str) -> RomFileType {
+/// Maps a file's **extension** to the corresponding **RomFileType** for supported consoles.
+///
+/// The file extension is extracted from the provided name, converted to lowercase
+/// and matched against a predefined list of extensions for different retro gaming systems.
+///
+/// # Arguments
+///
+/// * `name` - The full file name, which may or may not include a path (e.g., `"game/zelda.nes"`).
+///
+/// # Returns
+///
+/// A **RomFileType** variant corresponding to the file extension:
+///
+/// * **RomFileType::Nes** for `nes`
+/// * **RomFileType::Snes** for `smc` or `sfc`
+/// * **RomFileType::N64** for `n64`, `v64`, or `z64`
+/// * **RomFileType::MasterSystem** for `sms`
+/// * **RomFileType::GameGear** for `gg`
+/// * **RomFileType::GameBoy** for `gb` or `gbc`
+/// * **RomFileType::GameBoyAdvance** for `gba`
+/// * **RomFileType::Genesis** for `md`, `gen`, or `32x`
+/// * **RomFileType::SegaCD** for `scd`
+/// * **RomFileType::CDSystem** for `iso`, `bin`, `img`, `psx`, or `chd`
+/// * **RomFileType::Unknown** for any other extension.
+///
+/// # Examples
+///
+/// ```rust
+/// use rom_analyzer::{get_rom_file_type, RomFileType};
+///
+/// let rom_type_nes = get_rom_file_type("game.NES");
+/// assert_eq!(rom_type_nes, RomFileType::Nes);
+///
+/// let rom_type_snes = get_rom_file_type("chrono.sfc");
+/// assert_eq!(rom_type_snes, RomFileType::Snes);
+///
+/// let unknown = get_rom_file_type("document.txt");
+/// assert_eq!(unknown, RomFileType::Unknown);
+/// ```
+pub fn get_rom_file_type(name: &str) -> RomFileType {
     let ext = get_file_extension_lowercase(name);
 
     match ext.as_str() {
@@ -92,6 +157,21 @@ fn get_rom_file_type(name: &str) -> RomFileType {
     }
 }
 
+/// Processes raw ROM data based on its determined file type.
+///
+/// This function takes the raw byte data of a ROM file and its path, determines
+/// the console type using `get_rom_file_type` and then dispatches the data to
+/// the appropriate console-specific analysis function.
+///
+/// # Arguments
+///
+/// * `data` - A `Vec<u8>` containing the raw bytes of the ROM file.
+/// * `rom_path` - The path to the ROM file, used to infer the file type.
+///
+/// # Returns
+///
+/// A `Result` containing either a `RomAnalysisResult` with the analysis data
+/// or a `Box<dyn Error>`.
 fn process_rom_data(data: Vec<u8>, rom_path: &str) -> Result<RomAnalysisResult, Box<dyn Error>> {
     match get_rom_file_type(rom_path) {
         RomFileType::Nes => nes::analyze_nes_data(&data, rom_path).map(RomAnalysisResult::NES),
@@ -146,8 +226,31 @@ fn process_rom_data(data: Vec<u8>, rom_path: &str) -> Result<RomAnalysisResult, 
 
 /// Analyze the header data of a ROM file.
 ///
-/// This function looks at the data of a ROM file and returns info based on the headers and
-/// filetype.
+/// This is the primary public function for analyzing ROM files. It handles different
+/// file types (including archives like ZIP and CHD) by first processing them to
+/// extract the ROM data, and then dispatches the data to `process_rom_data` for
+/// console-specific analysis.
+///
+/// # Arguments
+///
+/// * `file_path` - The path to the ROM file or archive.
+///
+/// # Returns
+///
+/// A `Result` containing either a `RomAnalysisResult` with the analysis data
+/// or a `Box<dyn Error>`.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use rom_analyzer::analyze_rom_data;
+///
+/// let result = analyze_rom_data("path/to/your/rom.nes");
+/// match result {
+///     Ok(analysis) => println!("Analysis successful!"),
+///     Err(e) => eprintln!("Error analyzing ROM: {}", e),
+/// }
+/// ```
 pub fn analyze_rom_data(file_path: &str) -> Result<RomAnalysisResult, Box<dyn Error>> {
     match get_file_extension_lowercase(file_path).as_str() {
         "zip" => {
@@ -168,6 +271,8 @@ pub fn analyze_rom_data(file_path: &str) -> Result<RomAnalysisResult, Box<dyn Er
 
 macro_rules! impl_rom_analysis_method {
     ($fn_name:ident, $return_type:ty) => {
+        /// Calls the `$fn_name` method on the inner console-specific analysis struct.
+        /// This allows a common interface for accessing console-specific data.
         pub fn $fn_name(&self) -> $return_type {
             match self {
                 RomAnalysisResult::GameGear(a) => a.$fn_name(),
@@ -187,6 +292,7 @@ macro_rules! impl_rom_analysis_method {
 
 macro_rules! impl_rom_analysis_accessor {
     ($fn_name:ident, $field:ident, &$return_type:ty) => {
+        /// Provides read-only access to the `$field` field of the inner console-specific analysis struct.
         pub fn $fn_name(&self) -> &$return_type {
             match self {
                 RomAnalysisResult::GameGear(a) => &a.$field,
@@ -203,6 +309,7 @@ macro_rules! impl_rom_analysis_accessor {
         }
     };
     ($fn_name:ident, $field:ident, $return_type:ty) => {
+        /// Provides access to the `$field` field of the inner console-specific analysis struct.
         pub fn $fn_name(&self) -> $return_type {
             match self {
                 RomAnalysisResult::GameGear(a) => a.$field,

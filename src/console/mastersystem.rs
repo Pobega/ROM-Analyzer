@@ -1,5 +1,10 @@
-/// Master System header documentation referenced here:
-/// https://www.smspower.org/Development/ROMHeader
+//! Provides header analysis functionality for Sega Master System ROMs.
+//!
+//! This module can parse Master System ROM headers to extract region information.
+//!
+//! Master System header documentation referenced here:
+//! <https://www.smspower.org/Development/ROMHeader>
+
 use std::error::Error;
 
 use serde::Serialize;
@@ -33,8 +38,22 @@ impl MasterSystemAnalysis {
     }
 }
 
-/// Analyzes Master System ROM data and returns a struct containing the analysis results.
-/// This function is now pure and does not perform console output.
+/// Analyzes Master System ROM data.
+///
+/// This function reads the Master System ROM header to extract the region byte.
+/// It then maps the region byte to a human-readable region name and performs
+/// a region mismatch check against the `source_name`.
+///
+/// # Arguments
+///
+/// * `data` - A byte slice (`&[u8]`) containing the raw ROM data.
+/// * `source_name` - The name of the ROM file, used for region mismatch checks.
+///
+/// # Returns
+///
+/// A `Result` which is:
+/// - `Ok(MasterSystemAnalysis)` containing the detailed analysis results.
+/// - `Err(Box<dyn Error>)` if the ROM data is too small to contain the region byte.
 pub fn analyze_mastersystem_data(
     data: &[u8],
     source_name: &str,

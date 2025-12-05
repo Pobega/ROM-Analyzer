@@ -1,5 +1,11 @@
-/// Gameboy/Color header documentation referenced here:
-/// https://gbdev.io/pandocs/The_Cartridge_Header.html
+//! Provides header analysis functionality for Game Boy (GB) and Game Boy Color (GBC) ROMs.
+//!
+//! This module can parse GB/GBC ROM headers to extract game title, system type,
+//! and region information.
+//!
+//! Gameboy/Color header documentation referenced here:
+//! <https://gbdev.io/pandocs/The_Cartridge_Header.html>
+
 use std::error::Error;
 
 use serde::Serialize;
@@ -45,8 +51,22 @@ impl GbAnalysis {
     }
 }
 
-/// Analyzes Game Boy ROM data and returns a struct containing the analysis results.
-/// This function is now pure and does not perform console output.
+/// Analyzes Game Boy (GB) and Game Boy Color (GBC) ROM data.
+///
+/// This function reads the ROM header to determine the system type (GB or GBC),
+/// extract the game title and identify the destination code which indicates the region.
+/// It also performs a region mismatch check against the `source_name`.
+///
+/// # Arguments
+///
+/// * `data` - A byte slice (`&[u8]`) containing the raw ROM data.
+/// * `source_name` - The name of the ROM file, used for region mismatch checks.
+///
+/// # Returns
+///
+/// A `Result` which is:
+/// - `Ok(GbAnalysis)` containing the detailed analysis results.
+/// - `Err(Box<dyn Error>)` if the ROM data is too small to contain a valid header.
 pub fn analyze_gb_data(data: &[u8], source_name: &str) -> Result<GbAnalysis, Box<dyn Error>> {
     // The Game Boy header is located at offset 0x100.
     // The relevant information for region and system type are within the first 0x150 bytes.

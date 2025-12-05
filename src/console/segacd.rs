@@ -1,5 +1,10 @@
-/// SegaCD header documentation referenced here:
-/// https://segaretro.org/ROM_header
+//! Provides header analysis functionality for Sega CD (also known as Mega CD) ROMs.
+//!
+//! This module can parse Sega CD boot file headers to extract signature and region information.
+//!
+//! SegaCD header documentation referenced here:
+//! <https://segaretro.org/ROM_header>
+
 use std::error::Error;
 
 use log::error;
@@ -37,8 +42,23 @@ impl SegaCdAnalysis {
     }
 }
 
-/// Analyzes Sega CD ROM data and returns a struct containing the analysis results.
-/// This function is now pure and does not perform console output.
+/// Analyzes Sega CD ROM data.
+///
+/// This function reads the Sega CD boot program header to extract its signature
+/// (e.g., "SEGA CD", "SEGA MEGA") and the region code byte. It then maps the region
+/// code to a human-readable region name and performs a region mismatch check against
+/// the `source_name`. A warning is logged if an unexpected signature is found.
+///
+/// # Arguments
+///
+/// * `data` - A byte slice (`&[u8]`) containing the raw ROM data (e.g., from a `.bin` or `.iso` file).
+/// * `source_name` - The name of the ROM file, used for logging and region mismatch checks.
+///
+/// # Returns
+///
+/// A `Result` which is:
+/// - `Ok(SegaCdAnalysis)` containing the detailed analysis results.
+/// - `Err(Box<dyn Error>)` if the ROM data is too small to contain a valid Sega CD header.
 pub fn analyze_segacd_data(
     data: &[u8],
     source_name: &str,
