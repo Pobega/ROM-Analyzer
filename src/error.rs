@@ -1,5 +1,9 @@
+//! Defines custom error types for ROM-Analyzer, providing a centralized way
+//! to handle and propagate errors throughout the application.
+
 use std::error::Error;
 use std::fmt;
+
 use zip::result::ZipError;
 
 #[derive(Debug)]
@@ -8,6 +12,15 @@ pub struct RomAnalyzerError {
 }
 
 impl RomAnalyzerError {
+    /// Creates a new `RomAnalyzerError` with the given message.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - A string slice that describes the error.
+    ///
+    /// # Returns
+    ///
+    /// A new `RomAnalyzerError` instance.
     pub fn new(msg: &str) -> RomAnalyzerError {
         RomAnalyzerError {
             details: msg.to_string(),
@@ -27,12 +40,14 @@ impl Error for RomAnalyzerError {
     }
 }
 
+/// Converts a `zip::result::ZipError` into a `RomAnalyzerError`.
 impl From<ZipError> for RomAnalyzerError {
     fn from(err: ZipError) -> RomAnalyzerError {
         RomAnalyzerError::new(&format!("Zip Error: {}", err))
     }
 }
 
+/// Converts a `std::io::Error` into a `RomAnalyzerError`.
 impl From<std::io::Error> for RomAnalyzerError {
     fn from(err: std::io::Error) -> RomAnalyzerError {
         RomAnalyzerError::new(&format!("IO Error: {}", err))

@@ -1,5 +1,11 @@
-/// N64 header documentation referenced here:
-/// https://en64.shoutwiki.com/wiki/ROM
+//! Provides header analysis functionality for Nintendo 64 (N64) ROMs.
+//!
+//! This module can parse N64 ROM headers to extract country code and infer
+//! the geographical region.
+//!
+//! N64 header documentation referenced here:
+//! <https://en64.shoutwiki.com/wiki/ROM>
+
 use std::error::Error;
 
 use serde::Serialize;
@@ -33,8 +39,22 @@ impl N64Analysis {
     }
 }
 
-/// Analyzes N64 ROM data and returns a struct containing the analysis results.
-/// This function is now pure and does not perform console output.
+/// Analyzes N64 ROM data.
+///
+/// This function reads the N64 ROM header to extract the country code.
+/// It then maps the country code to a human-readable region name and performs
+/// a region mismatch check against the `source_name`.
+///
+/// # Arguments
+///
+/// * `data` - A byte slice (`&[u8]`) containing the raw ROM data.
+/// * `source_name` - The name of the ROM file, used for region mismatch checks.
+///
+/// # Returns
+///
+/// A `Result` which is:
+/// - `Ok(N64Analysis)` containing the detailed analysis results.
+/// - `Err(Box<dyn Error>)` if the ROM data is too small to contain a valid N64 header.
 pub fn analyze_n64_data(data: &[u8], source_name: &str) -> Result<N64Analysis, Box<dyn Error>> {
     // N64 header is at offset 0x0. Country code is at offset 0x3E (2 bytes).
     const HEADER_SIZE: usize = 0x40;

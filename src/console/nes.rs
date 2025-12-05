@@ -1,6 +1,12 @@
-/// NES header documentation referenced here:
-/// https://www.nesdev.org/wiki/INES
-/// https://www.nesdev.org/wiki/NES_2.0
+//! Provides header analysis functionality for Nintendo Entertainment System (NES) ROMs.
+//!
+//! This module supports both iNES and NES 2.0 header formats to extract region
+//! and other relevant information.
+//!
+//! NES header documentation referenced here:
+//! <https://www.nesdev.org/wiki/INES>
+//! <https://www.nesdev.org/wiki/NES_2.0>
+
 use std::error::Error;
 
 use serde::Serialize;
@@ -51,6 +57,20 @@ impl NesAnalysis {
     }
 }
 
+/// Determines the NES region name based on the region byte and header format.
+///
+/// This function interprets the region information from either an iNES or NES 2.0
+/// header, mapping the raw byte value to a human-readable region string.
+///
+/// # Arguments
+///
+/// * `region_byte` - The byte containing the region code (from iNES byte 9 or NES 2.0 byte 12).
+/// * `nes2_format` - A boolean indicating whether the ROM uses the NES 2.0 header format.
+///
+/// # Returns
+///
+/// A `&'static str` representing the region (e.g., "NTSC (USA/Japan)", "PAL (Europe/Oceania)"),
+/// or "Unknown" if the region code is not recognized.
 pub fn get_nes_region_name(region_byte: u8, nes2_format: bool) -> &'static str {
     if nes2_format {
         // NES 2.0 headers store region data in the CPU/PPU timing bit
@@ -74,8 +94,24 @@ pub fn get_nes_region_name(region_byte: u8, nes2_format: bool) -> &'static str {
     }
 }
 
-/// Analyzes NES ROM data and returns a struct containing the analysis results.
-/// This function is now pure and does not perform console output.
+/// Analyzes NES ROM data.
+///
+/// This function first validates the iNES header signature. It then determines
+/// if the ROM uses the NES 2.0 format or the older iNES format. Based on the
+/// detected format, it extracts the relevant region byte and maps it to a
+/// human-readable region name. A region mismatch check is also performed
+/// against the `source_name`.
+///
+/// # Arguments
+///
+/// * `data` - A byte slice (`&[u8]`) containing the raw ROM data.
+/// * `source_name` - The name of the ROM file, used for region mismatch checks.
+///
+/// # Returns
+///
+/// A `Result` which is:
+/// - `Ok(NesAnalysis)` containing the detailed analysis results.
+/// - `Err(Box<dyn Error>)` if the ROM data is too small or has an invalid iNES signature.
 pub fn analyze_nes_data(data: &[u8], source_name: &str) -> Result<NesAnalysis, Box<dyn Error>> {
     if data.len() < 16 {
         return Err(Box::new(RomAnalyzerError::new(&format!(

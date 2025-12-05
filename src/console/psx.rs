@@ -1,3 +1,8 @@
+//! Provides header analysis functionality for Sony PlayStation (PSX) ROMs, typically in CD image formats.
+//!
+//! This module focuses on identifying the region of PSX games by searching for known
+//! executable prefixes (e.g., "SLUS", "SLES", "SLPS") within the initial data tracks.
+
 use std::error::Error;
 
 use serde::Serialize;
@@ -37,6 +42,23 @@ impl PsxAnalysis {
     }
 }
 
+/// Analyzes PlayStation (PSX) ROM data, typically from CD images.
+///
+/// This function scans a portion of the ROM data (up to `0x20000` bytes) for
+/// common PSX executable prefixes like "SLUS", "SLES", or "SLPS". These prefixes
+/// indicate the game's region. If a prefix is found, the corresponding region
+/// and code are extracted. A region mismatch check is also performed against the `source_name`.
+///
+/// # Arguments
+///
+/// * `data` - A byte slice (`&[u8]`) containing the raw ROM data (e.g., from a `.bin` or `.iso` file).
+/// * `source_name` - The name of the ROM file, used for region mismatch checks.
+///
+/// # Returns
+///
+/// A `Result` which is:
+/// - `Ok(PsxAnalysis)` containing the detailed analysis results.
+/// - `Err(Box<dyn Error>)` if the ROM data is too small for reliable analysis.
 pub fn analyze_psx_data(data: &[u8], source_name: &str) -> Result<PsxAnalysis, Box<dyn Error>> {
     // Check the first 128KB (0x20000 bytes)
     let check_size = std::cmp::min(data.len(), 0x20000);

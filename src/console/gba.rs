@@ -1,5 +1,11 @@
-/// GBA header documentation referenced here:
-/// https://problemkaputt.de/gbatek-gba-cartridge-header.htm
+//! Provides header analysis functionality for Game Boy Advance (GBA) ROMs.
+//!
+//! This module can parse GBA ROM headers to extract game title, game code,
+//! maker code, and region information.
+//!
+//! GBA header documentation referenced here:
+//! <https://problemkaputt.de/gbatek-gba-cartridge-header.htm>
+
 use std::error::Error;
 
 use serde::Serialize;
@@ -39,8 +45,22 @@ impl GbaAnalysis {
     }
 }
 
-/// Analyzes GBA ROM data and returns a struct containing the analysis results.
-/// This function is now pure and does not perform console output.
+/// Analyzes Game Boy Advance (GBA) ROM data.
+///
+/// This function reads the GBA ROM header to extract the game title, game code,
+/// maker code, and region information. It then normalizes the region and performs
+/// a region mismatch check against the `source_name`.
+///
+/// # Arguments
+///
+/// * `data` - A byte slice (`&[u8]`) containing the raw ROM data.
+/// * `source_name` - The name of the ROM file, used for region mismatch checks.
+///
+/// # Returns
+///
+/// A `Result` which is:
+/// - `Ok(GbaAnalysis)` containing the detailed analysis results.
+/// - `Err(Box<dyn Error>)` if the ROM data is too small to contain a valid GBA header.
 pub fn analyze_gba_data(data: &[u8], source_name: &str) -> Result<GbaAnalysis, Box<dyn Error>> {
     // GBA header is at offset 0x0. Relevant info: Game Title (0xA0-0xAC), Game Code (0xAC-0xB0), Maker Code (0xB0-0xB2), Region (0xB4).
     // The header is typically 192 bytes (0xC0), but we'll use a slightly larger safety margin.

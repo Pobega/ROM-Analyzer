@@ -1,5 +1,11 @@
-/// GameGear header documentation referenced here:
-/// https://www.smspower.org/Development/ROMHeader
+//! Provides header analysis functionality for Sega Game Gear ROMs.
+//!
+//! This module can parse Game Gear ROM headers to extract region information
+//! and compare it with region inferences made from the filename.
+//!
+//! Game Gear header documentation referenced here:
+//! <https://www.smspower.org/Development/ROMHeader>
+
 use std::error::Error;
 
 use log::debug;
@@ -16,7 +22,7 @@ const SEGA_HEADER_SIGNATURE: &[u8] = b"TMR SEGA";
 pub struct GameGearAnalysis {
     /// The name of the source file.
     pub source_name: String,
-    /// The identified region name (e.g., "USA").
+    /// The identified region name (e.g., "GameGear Japan").
     pub region: String,
     /// If the region in the ROM header doesn't match the region in the filename.
     pub region_mismatch: bool,
@@ -42,6 +48,19 @@ impl GameGearAnalysis {
     }
 }
 
+/// Determines the Game Gear region name based on a given region byte.
+///
+/// The region byte typically comes from the ROM header. This function extracts the relevant nibble
+/// from the byte and maps it to a human-readable region string.
+///
+/// # Arguments
+///
+/// * `region_byte` - The byte containing the region code, usually found in the ROM header.
+///
+/// # Returns
+///
+/// A `&'static str` representing the region as written in the ROM header (e.g., "GameGear Japan",
+/// "GameGear Export"), or "Unknown" if the region code is not recognized.
 pub fn get_gamegear_region_name(region_byte: u8) -> &'static str {
     let region_code_value: u8 = region_byte >> 4;
     match region_code_value {
@@ -54,8 +73,26 @@ pub fn get_gamegear_region_name(region_byte: u8) -> &'static str {
     }
 }
 
-/// Analyzes Game Gear ROM data and returns a struct containing the analysis results.
-/// This function is now pure and does not perform console output.
+/// Analyzes a Game Gear ROM and returns a struct containing the analysis results.
+///
+/// This function attempts to locate the 'TMR SEGA' header signature within the ROM data at
+/// predefined offsets. If found, it extracts the region byte and determines the ROM's region.  If
+/// the region cannot be determined from the header or if no header is found, it attempts to infer
+/// the region from the `source_name`.
+///
+/// If a region is found in the header it also checks for mismatches between the inferred and
+/// header-derived regions.
+///
+/// # Arguments
+///
+/// * `data` - A byte slice (`&[u8]`) containing the raw ROM data.
+/// * `source_name` - The name of the ROM file, used for region inference if needed.
+///
+/// # Returns
+///
+/// A `Result` which is:
+/// - `Ok(GameGearAnalysis)` containing the detailed analysis results.
+/// - `Err(Box<dyn Error>)` if any critical error occurs during analysis.
 pub fn analyze_gamegear_data(
     data: &[u8],
     source_name: &str,

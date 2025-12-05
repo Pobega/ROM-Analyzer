@@ -1,3 +1,38 @@
+//! Provides utilities for inferring and normalizing geographical regions
+//! from ROM filenames and header information.
+//!
+//! This module helps in identifying the target region (e.g., Japan, USA, Europe)
+//! of a ROM, which is crucial for accurate analysis and categorization.
+
+/// Infers the geographical region of a ROM from its filename.
+///
+/// This function examines the provided filename for common region indicators
+/// (e.g., "JP", "USA", "EUR", "PAL", NTSC-J, NTSC-U, NTSC-E, (J), (U), (E), \[J\], \[U\], \[E\])
+/// and returns a standardized region string if a match is found.
+/// The search is case-insensitive.
+///
+/// # Arguments
+///
+/// * `name` - The filename of the ROM as a string slice.
+///
+/// # Returns
+///
+/// An `Option<&'static str>` which is:
+/// - `Some("JAPAN")` if the filename indicates a Japanese region.
+/// - `Some("USA")` if the filename indicates a USA region.
+/// - `Some("EUROPE")` if the filename indicates a European region.
+/// - `None` if no region could be inferred from the filename.
+///
+/// # Examples
+///
+/// ```rust
+/// use rom_analyzer::region::infer_region_from_filename;
+///
+/// assert_eq!(infer_region_from_filename("MyGame (J).zip"), Some("JAPAN"));
+/// assert_eq!(infer_region_from_filename("AnotherGame (USA).nes"), Some("USA"));
+/// assert_eq!(infer_region_from_filename("PAL_Game.sfc"), Some("EUROPE"));
+/// assert_eq!(infer_region_from_filename("UnknownGame.bin"), None);
+/// ```
 pub fn infer_region_from_filename(name: &str) -> Option<&'static str> {
     let lower_name = name.to_lowercase();
 
@@ -27,6 +62,35 @@ pub fn infer_region_from_filename(name: &str) -> Option<&'static str> {
     }
 }
 
+/// Normalizes a region string found in a ROM header to a standardized format.
+///
+/// This function takes a region string (e.g., from a ROM header) and attempts
+/// to map it to one of the standardized regions: "JAPAN", "USA", or "EUROPE".
+/// It handles various common spellings and codes (e.g., NTSC-J, SLUS, PAL)
+/// and performs a case-insensitive match.
+///
+/// # Arguments
+///
+/// * `header_text` - The region string extracted from a ROM header.
+///
+/// # Returns
+///
+/// An `Option<&'static str>` which is:
+/// - `Some("JAPAN")` if the header text indicates a Japanese region.
+/// - `Some("USA")` if the header text indicates a USA region.
+/// - `Some("EUROPE")` if the header text indicates a European region.
+/// - `None` if the region could not be normalized.
+///
+/// # Examples
+///
+/// ```rust
+/// use rom_analyzer::region::normalize_header_region;
+///
+/// assert_eq!(normalize_header_region("NTSC-J"), Some("JAPAN"));
+/// assert_eq!(normalize_header_region("SLUS_000.00"), Some("USA"));
+/// assert_eq!(normalize_header_region("PAL"), Some("EUROPE"));
+/// assert_eq!(normalize_header_region("UNKNOWN"), None);
+/// ```
 pub fn normalize_header_region(header_text: &str) -> Option<&'static str> {
     let header_text = header_text.to_uppercase();
 

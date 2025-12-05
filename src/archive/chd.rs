@@ -1,3 +1,8 @@
+//! Provides functionality for analyzing CHD (Compressed Hunks of Data) files.
+//!
+//! This module focuses on decompressing and extracting relevant header data from CHD files.
+//! It exposes a function to decompress a portion of a CHD file for header analysis.
+
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
@@ -6,17 +11,33 @@ use std::path::Path;
 use chd::Chd;
 use log::debug;
 
-use crate::console::psx::PsxAnalysis;
-use crate::console::segacd::SegaCdAnalysis;
-
 // We only need the first few KB for header analysis for PSX and SegaCD.
 const MAX_HEADER_SIZE: usize = 0x20000; // 128KB
 
-pub enum ChdAnalysis {
-    SegaCD(SegaCdAnalysis),
-    PSX(PsxAnalysis),
-}
-
+/// Analyzes a CHD (Compressed Hunks of Data) file, decompressing a portion of it.
+///
+/// This function opens a CHD file, reads its header to determine hunk size and count,
+/// and then decompresses a maximum of `MAX_HEADER_SIZE` bytes from the beginning
+/// of the CHD data. This decompressed data is typically sufficient for extracting
+/// console-specific headers without decompressing the entire (potentially very large)
+/// CHD file.
+///
+/// # Arguments
+///
+/// * `filepath` - The path to the CHD file.
+///
+/// # Returns
+///
+/// A `Result` which is:
+/// - `Ok(Vec<u8>)` containing the decompressed initial bytes of the CHD file.
+/// - `Err(Box<dyn Error>)` if any error occurs when processing the CHD.
+///
+/// # Errors
+///
+/// This function can return an error if:
+/// - The file cannot be opened.
+/// - The CHD format is invalid or corrupted.
+/// - There are issues during hunk decompression.
 pub fn analyze_chd_file(filepath: &Path) -> Result<Vec<u8>, Box<dyn Error>> {
     let file = File::open(filepath)?;
     let mut reader = BufReader::new(file);

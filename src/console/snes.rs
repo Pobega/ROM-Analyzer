@@ -1,5 +1,11 @@
-/// Super Nintendo header documentation referenced here:
-/// https://snes.nesdev.org/wiki/ROM_header
+//! Provides header analysis functionality for Super Nintendo Entertainment System (SNES) ROMs.
+//!
+//! This module can detect SNES ROM mapping types (LoROM, HiROM),
+//! validate checksums, and extract game title and region information.
+//!
+//! Super Nintendo header documentation referenced here:
+//! <https://snes.nesdev.org/wiki/ROM_header>
+
 use std::error::Error;
 
 use log::error;
@@ -47,7 +53,19 @@ impl SnesAnalysis {
     }
 }
 
-/// Helper function to get the SNES region name from a code byte.
+/// Helper function to get the SNES region name from a region code byte.
+///
+/// This function maps a raw 8-bit region code, typically found in the SNES ROM header,
+/// to a human-readable string representing the geographical region or console variant.
+///
+/// # Arguments
+///
+/// * `code` - The region code byte from the SNES ROM header.
+///
+/// # Returns
+///
+/// A `String` containing the region name (e.g., "Japan (NTSC)", "Europe / Oceania / Asia (PAL)"),
+/// or "Unknown Region (0xXX)" if the code is not recognized.
 pub fn get_snes_region_name(code: u8) -> String {
     let regions = vec![
         (0x00, "Japan (NTSC)"),
@@ -80,7 +98,21 @@ pub fn get_snes_region_name(code: u8) -> String {
     format!("Unknown Region (0x{:02X})", code)
 }
 
-/// Helper function to validate the SNES checksum.
+/// Helper function to validate the SNES ROM checksum.
+///
+/// This function checks if the 16-bit checksum and its complement, located
+/// within the SNES header, sum up to `0xFFFF`. This is a common method
+/// for validating the integrity of SNES ROM headers.
+///
+/// # Arguments
+///
+/// * `rom_data` - A byte slice (`&[u8]`) containing the raw ROM data.
+/// * `header_offset` - The starting offset of the SNES header within `rom_data`.
+///
+/// # Returns
+///
+/// `true` if the checksum and its complement are valid (sum to 0xFFFF),
+/// `false` otherwise, or if the `header_offset` is out of bounds.
 pub fn validate_snes_checksum(rom_data: &[u8], header_offset: usize) -> bool {
     // Ensure we have enough data for checksum and complement bytes.
     if header_offset + 0x20 > rom_data.len() {
@@ -107,8 +139,28 @@ pub fn validate_snes_checksum(rom_data: &[u8], header_offset: usize) -> bool {
     (checksum as u32 + complement as u32) == 0xFFFF
 }
 
-/// Analyzes SNES ROM data and returns a struct containing the analysis results.
-/// This function is now pure and does not perform console output.
+/// Analyzes SNES ROM data.
+///
+/// This function first attempts to detect a copier header. It then tries to determine
+/// the ROM's mapping type (LoROM or HiROM) by validating checksums and examining
+/// the Map Mode byte at expected header locations. If both checksum and Map Mode
+/// are consistent, that mapping is chosen. If only the checksum is valid, it uses
+/// that mapping with an "Map Mode Unverified" tag. If neither is fully consistent,
+/// it falls back to LoROM (Unverified). Once the header location is determined,
+/// it extracts the game title and region code, maps the region code to a human-readable
+/// name, and performs a region mismatch check against the `source_name`.
+///
+/// # Arguments
+///
+/// * `data` - A byte slice (`&[u8]`) containing the raw ROM data.
+/// * `source_name` - The name of the ROM file, used for logging and region mismatch checks.
+///
+/// # Returns
+///
+/// A `Result` which is:
+/// - `Ok(SnesAnalysis)` containing the detailed analysis results.
+/// - `Err(Box<dyn Error>)` if the ROM data is too small or the header is deemed invalid
+///   such that critical information cannot be read.
 pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<SnesAnalysis, Box<dyn Error>> {
     let file_size = data.len();
     let mut header_offset = 0;
