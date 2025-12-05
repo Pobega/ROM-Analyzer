@@ -14,6 +14,11 @@ use zip::ZipArchive;
 use crate::SUPPORTED_ROM_EXTENSIONS;
 use crate::error::RomAnalyzerError;
 
+/// Max ROM size to extract from the zip (128kb).
+/// This avoids us  extracting larger files to memory which is a concern for memory constrained
+/// systems that may be utilizing this functionality.
+const MAX_ROM_SIZE: u64 = 128 * 1024;
+
 /// Processes a ZIP archive to find and extract the first supported ROM file.
 ///
 /// This function opens the provided ZIP file, iterates through its entries,
@@ -44,7 +49,7 @@ pub fn process_zip_file(
     debug!("[+] Analyzing ZIP archive: {}", original_filename);
 
     for i in 0..archive.len() {
-        let mut file_in_zip = archive.by_index(i)?;
+        let file_in_zip = archive.by_index(i)?;
         let entry_name = file_in_zip.name().to_string();
         let lower_entry_name = entry_name.to_lowercase();
 
@@ -58,8 +63,10 @@ pub fn process_zip_file(
 
         if is_supported_rom {
             debug!("[+] Found supported ROM in zip: {}", entry_name);
+            // Read the file up to MAX_ROM_SIZE.
+            let mut limited_reader = file_in_zip.take(MAX_ROM_SIZE);
             let mut data = Vec::new();
-            file_in_zip.read_to_end(&mut data)?;
+            limited_reader.read_to_end(&mut data)?;
 
             return Ok((data, entry_name));
         }
