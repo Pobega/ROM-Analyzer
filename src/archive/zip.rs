@@ -77,3 +77,81 @@ pub fn process_zip_file(
         original_filename
     ))))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::tempdir;
+    use zip::write::{FileOptions, ZipWriter};
+
+    /// This struct will hold both the path and the temporary directory handle
+    /// to ensure the file is not deleted until this struct is dropped.
+    struct TestZip {
+        path: String,
+        // The TempDir MUST be kept to prevent the zip file from being deleted.
+        _dir: tempfile::TempDir,
+    }
+
+    /// Test helper function to create a temporary Zip file for testing.
+    fn create_zip_file(filename: &str, file_contents: &[u8]) -> Result<TestZip, Box<dyn Error>> {
+        let dir = tempdir()?;
+        let zip_path = dir.path().join("test.zip");
+        let zip_file = File::create(&zip_path)?;
+
+        let mut zip = ZipWriter::new(zip_file);
+        zip.start_file(filename, FileOptions::default())?;
+        zip.write_all(file_contents)?;
+        zip.finish()?;
+
+        let zip_path_string: String = zip_path
+            .to_str()
+            .ok_or_else(|| RomAnalyzerError::new("Path contained invalid UTF-8"))?
+            .to_string();
+
+        Ok(TestZip {
+            path: zip_path_string,
+            _dir: dir,
+        })
+    }
+
+    #[test]
+    fn test_process_zip_file_no_supported_roms() {
+        let expected_filename = "unsupported.txt";
+        let expected_data = b"This is not a ROM.";
+
+        let zip_path = create_zip_file(expected_filename, expected_data)
+            .expect("Failed to create test zip file");
+        let zip_file = File::open(&zip_path.path).expect("Failed to open zip for reading");
+
+        let result = process_zip_file(zip_file, &zip_path.path);
+
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        let rom_analyzer_err = error
+            .downcast_ref::<RomAnalyzerError>()
+            .expect("Error should be a RomAnalyzerError");
+        assert!(
+            rom_analyzer_err
+                .to_string()
+                .starts_with("No supported ROM files found within the zip archive")
+        );
+    }
+
+    #[test]
+    fn test_process_zip_file_with_supported_rom() {
+        let expected_filename = "game.nes";
+        let expected_data = b"NES ROM DATA\0\0\0\0";
+
+        let zip_path = create_zip_file(expected_filename, expected_data)
+            .expect("Failed to create test zip file");
+        let zip_file = File::open(&zip_path.path).expect("Failed to open zip for reading");
+
+        let result = process_zip_file(zip_file, &zip_path.path);
+
+        assert!(result.is_ok());
+        let (extracted_data, extracted_filename) = result.unwrap();
+        assert_eq!(extracted_data, expected_data);
+        assert_eq!(extracted_filename, expected_filename);
+    }
+}

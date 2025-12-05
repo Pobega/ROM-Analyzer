@@ -82,3 +82,23 @@ pub fn analyze_chd_file(filepath: &Path) -> Result<Vec<u8>, Box<dyn Error>> {
 
     Ok(decompressed_data)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::ErrorKind;
+
+    #[test]
+    fn test_analyze_chd_file_non_existent() {
+        let non_existent_path = Path::new("non_existent_file.chd");
+        let result = analyze_chd_file(non_existent_path);
+
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        // Check if the error is due to the file not found
+        assert_eq!(
+            error.downcast_ref::<std::io::Error>().map(|e| e.kind()),
+            Some(ErrorKind::NotFound)
+        );
+    }
+}
