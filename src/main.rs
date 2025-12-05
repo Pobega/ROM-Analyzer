@@ -86,6 +86,8 @@ fn main() {
 
     let mut had_error = false;
 
+    let mut json_results: Vec<RomAnalysisResult> = Vec::new();
+
     for file_path in &cli.file_paths {
         let path = Path::new(file_path);
 
@@ -107,27 +109,39 @@ fn main() {
         match result {
             Ok(analysis) => {
                 if cli.json {
-                    println!("{}", analysis.json());
+                    json_results.push(analysis.clone());
                 } else {
                     info!("{}", analysis.print());
-                }
-                if check_region_mismatch(analysis.source_name(), analysis.region()) {
-                    let inferred_region =
-                        infer_region_from_filename(analysis.source_name()).unwrap_or("Unknown");
-                    warn!(
-                        "~~~ POSSIBLE REGION MISMATCH ~~~\n\
-                         Source file:          {}\n\
-                         Filename suggests:    {}\n\
-                         ROM Header claims:    {}\n\
-                         The ROM may be mislabeled or have been patched.",
-                        analysis.source_name(),
-                        inferred_region,
-                        analysis.region(),
-                    );
+                    if check_region_mismatch(analysis.source_name(), analysis.region()) {
+                        let inferred_region =
+                            infer_region_from_filename(analysis.source_name()).unwrap_or("Unknown");
+                        warn!(
+                            "~~~ POSSIBLE REGION MISMATCH ~~~\n\
+                             Source file:          {}\n\
+                             Filename suggests:    {}\n\
+                             ROM Header claims:    {}\n\
+                             The ROM may be mislabeled or have been patched.",
+                            analysis.source_name(),
+                            inferred_region,
+                            analysis.region(),
+                        );
+                    }
                 }
             }
             Err(e) => {
                 error!("Error processing file {}: {}", file_path, e);
+                had_error = true;
+            }
+        }
+    }
+
+    if cli.json {
+        match serde_json::to_string_pretty(&json_results) {
+            Ok(json_output) => {
+                println!("{}", json_output);
+            }
+            Err(e) => {
+                eprintln!("Error serializing combined JSON output: {}", e);
                 had_error = true;
             }
         }

@@ -4,6 +4,8 @@ pub mod dispatcher;
 pub mod error;
 pub mod region;
 
+use serde::Serialize;
+
 use crate::console::gamegear::GameGearAnalysis;
 use crate::console::gb::GbAnalysis;
 use crate::console::gba::GbaAnalysis;
@@ -28,7 +30,8 @@ pub const SUPPORTED_ROM_EXTENSIONS: &[&str] = &[
     ".iso", ".bin", ".img", ".psx", // CD Systems
 ];
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
+#[serde(tag = "console")]
 pub enum RomAnalysisResult {
     GameGear(GameGearAnalysis),
     GB(GbAnalysis),
