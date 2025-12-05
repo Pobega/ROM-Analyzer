@@ -21,7 +21,7 @@ pub struct SegaCdAnalysis {
 }
 
 impl SegaCdAnalysis {
-    /// Prints the analysis results to the console.
+    /// Returns a printable String of the analysis results.
     pub fn print(&self) -> String {
         format!(
             "{}\n\
@@ -31,11 +31,6 @@ impl SegaCdAnalysis {
              Region:       {}",
             self.source_name, self.signature, self.region_code, self.region
         )
-    }
-
-    /// Return a JSON String of SegaCdAnalysis.
-    pub fn json(&self) -> String {
-        serde_json::to_string_pretty(self).expect("Failed to serialize SegaCdAnalysis to JSON")
     }
 }
 

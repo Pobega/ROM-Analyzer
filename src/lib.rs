@@ -61,21 +61,6 @@ impl RomAnalysisResult {
         }
     }
 
-    pub fn json(&self) -> String {
-        match self {
-            RomAnalysisResult::GameGear(a) => a.json(),
-            RomAnalysisResult::GB(a) => a.json(),
-            RomAnalysisResult::GBA(a) => a.json(),
-            RomAnalysisResult::Genesis(a) => a.json(),
-            RomAnalysisResult::MasterSystem(a) => a.json(),
-            RomAnalysisResult::N64(a) => a.json(),
-            RomAnalysisResult::NES(a) => a.json(),
-            RomAnalysisResult::PSX(a) => a.json(),
-            RomAnalysisResult::SegaCD(a) => a.json(),
-            RomAnalysisResult::SNES(a) => a.json(),
-        }
-    }
-
     pub fn region(&self) -> &str {
         match self {
             RomAnalysisResult::GameGear(a) => &a.region,

@@ -33,7 +33,7 @@ pub struct GenesisAnalysis {
 }
 
 impl GenesisAnalysis {
-    /// Prints the analysis results to the console.
+    /// Returns a printable String of the analysis results.
     pub fn print(&self) -> String {
         format!(
             "{}\n\
@@ -50,11 +50,6 @@ impl GenesisAnalysis {
             self.region_code_byte as char,
             self.region
         )
-    }
-
-    /// Return a JSON String of GenesisAnalysis.
-    pub fn json(&self) -> String {
-        serde_json::to_string_pretty(self).expect("Failed to serialize GenesisAnalysis to JSON")
     }
 }
 

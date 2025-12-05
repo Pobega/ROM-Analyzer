@@ -30,7 +30,7 @@ pub struct NesAnalysis {
 }
 
 impl NesAnalysis {
-    /// Prints the analysis results to the console.
+    /// Returns a printable String of the analysis results.
     pub fn print(&self) -> String {
         let nes_flag_display = if self.is_nes2_format {
             format!("\nNES2.0 Flag 12: 0x{:02X}", self.region_byte_value)
@@ -45,11 +45,6 @@ impl NesAnalysis {
              {}",
             self.source_name, self.region, nes_flag_display
         )
-    }
-
-    /// Return a JSON String of NESAnalysis.
-    pub fn json(&self) -> String {
-        serde_json::to_string_pretty(self).expect("Failed to serialize NesAnalysis to JSON")
     }
 }
 

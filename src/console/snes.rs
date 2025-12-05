@@ -30,7 +30,7 @@ pub struct SnesAnalysis {
 }
 
 impl SnesAnalysis {
-    /// Prints the analysis results to the console.
+    /// Returns a printable String of the analysis results.
     pub fn print(&self) -> String {
         format!(
             "{}\n\
@@ -41,11 +41,6 @@ impl SnesAnalysis {
              Region:       {}",
             self.source_name, self.game_title, self.mapping_type, self.region_code, self.region
         )
-    }
-
-    /// Return a JSON string of SnesAnalysis.
-    pub fn json(&self) -> String {
-        serde_json::to_string_pretty(self).expect("Failed to serialize SnesAnalysis to JSON")
     }
 }
 

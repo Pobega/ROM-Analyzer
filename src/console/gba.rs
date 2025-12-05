@@ -22,7 +22,7 @@ pub struct GbaAnalysis {
 }
 
 impl GbaAnalysis {
-    /// Prints the analysis results to the console.
+    /// Returns a printable String of the analysis results.
     pub fn print(&self) -> String {
         format!(
             "{}\n\
@@ -33,11 +33,6 @@ impl GbaAnalysis {
              Region:       {}",
             self.source_name, self.game_title, self.game_code, self.maker_code, self.region
         )
-    }
-
-    /// Return a JSON String of GbaAnalysis
-    pub fn json(&self) -> String {
-        serde_json::to_string_pretty(self).expect("Failed to serialize GbaAnalysis to JSON")
     }
 }
 

@@ -18,7 +18,7 @@ pub struct MasterSystemAnalysis {
 }
 
 impl MasterSystemAnalysis {
-    /// Prints the analysis results to the console.
+    /// Returns a printable String of the analysis results.
     pub fn print(&self) -> String {
         format!(
             "{}\n\
@@ -27,12 +27,6 @@ impl MasterSystemAnalysis {
              Region:       {}",
             self.source_name, self.region_byte, self.region
         )
-    }
-
-    /// Return a JSON String of MasterSystemAnalysis.
-    pub fn json(&self) -> String {
-        serde_json::to_string_pretty(self)
-            .expect("Failed to serialize MasterSystemAnalysis to JSON")
     }
 }
 

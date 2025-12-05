@@ -18,7 +18,7 @@ pub struct N64Analysis {
 }
 
 impl N64Analysis {
-    /// Prints the analysis results to the console.
+    /// Returns a printable String of the analysis results.
     pub fn print(&self) -> String {
         format!(
             "{}\n\
@@ -27,11 +27,6 @@ impl N64Analysis {
              Code:         {}",
             self.source_name, self.region, self.country_code
         )
-    }
-
-    /// Return a JSON String of N64Analysis.
-    pub fn json(&self) -> String {
-        serde_json::to_string_pretty(self).expect("Failed to serialize N64Analysis to JSON")
     }
 }
 

@@ -23,7 +23,7 @@ pub struct GameGearAnalysis {
 }
 
 impl GameGearAnalysis {
-    /// Prints the analysis results to the console.
+    /// Returns a printable String of the analysis results.
     pub fn print(&self) -> String {
         let region_not_in_rom_header = if !self.region_found {
             "\nNote:         Region information not in ROM header, inferred from filename."
@@ -37,11 +37,6 @@ impl GameGearAnalysis {
              {}",
             self.source_name, self.region, region_not_in_rom_header
         )
-    }
-
-    /// Return a JSON string of GameGearAnalysis.
-    pub fn json(&self) -> String {
-        serde_json::to_string_pretty(self).expect("Failed to serialize GameGearAnalysis to JSON")
     }
 }
 
