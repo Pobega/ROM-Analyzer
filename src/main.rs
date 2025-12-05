@@ -4,9 +4,8 @@ use clap::{ArgAction, Parser};
 use env_logger;
 use log::{LevelFilter, error, info, warn};
 
-use rom_analyzer::RomAnalysisResult;
-use rom_analyzer::dispatcher::analyze_rom_data;
 use rom_analyzer::region::infer_region_from_filename;
+use rom_analyzer::{RomAnalysisResult, analyze_rom_data};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
