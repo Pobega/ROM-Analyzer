@@ -1,8 +1,12 @@
 /// Genesis header documentation referenced here:
 /// https://plutiedev.com/rom-header#system
-use crate::error::RomAnalyzerError;
-use log::{error, info};
 use std::error::Error;
+
+use log::error;
+use serde::Serialize;
+
+use crate::error::RomAnalyzerError;
+use crate::region::check_region_mismatch;
 
 const SYSTEM_TYPE_START: usize = 0x100;
 const SYSTEM_TYPE_END: usize = 0x110;
@@ -13,12 +17,14 @@ const INTL_TITLE_END: usize = 0x180;
 const REGION_CODE_BYTE: usize = 0x1F0;
 
 /// Struct to hold the analysis results for a Sega cartridge (Genesis/Mega Drive) ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct GenesisAnalysis {
     /// The name of the source file.
     pub source_name: String,
     /// The identified region name (e.g., "USA (NTSC-U)").
     pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
     /// The raw region code byte.
     pub region_code_byte: u8,
     /// The detected console name (e.g., "SEGA MEGA DRIVE", "SEGA GENESIS").
@@ -30,9 +36,9 @@ pub struct GenesisAnalysis {
 }
 
 impl GenesisAnalysis {
-    /// Prints the analysis results to the console.
-    pub fn print(&self) {
-        info!(
+    /// Returns a printable String of the analysis results.
+    pub fn print(&self) -> String {
+        format!(
             "{}\n\
              System:       {}\n\
              Game Title (Domestic): {}\n\
@@ -46,7 +52,7 @@ impl GenesisAnalysis {
             self.region_code_byte,
             self.region_code_byte as char,
             self.region
-        );
+        )
     }
 }
 
@@ -117,13 +123,16 @@ pub fn analyze_genesis_data(
     }
     .to_string();
 
+    let region_mismatch = check_region_mismatch(source_name, &region_name);
+
     Ok(GenesisAnalysis {
+        source_name: source_name.to_string(),
+        region: region_name,
+        region_mismatch,
+        region_code_byte,
         console_name,
         game_title_domestic,
         game_title_international,
-        region_code_byte,
-        region: region_name,
-        source_name: source_name.to_string(),
     })
 }
 

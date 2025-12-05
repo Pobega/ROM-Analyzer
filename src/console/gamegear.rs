@@ -2,40 +2,43 @@
 /// https://www.smspower.org/Development/ROMHeader
 use std::error::Error;
 
-use log::{debug, info};
+use log::debug;
+use serde::Serialize;
 
-use crate::region::infer_region_from_filename;
+use crate::region::{check_region_mismatch, infer_region_from_filename};
 
 const POSSIBLE_HEADER_STARTS: &[usize] = &[0x7ff0, 0x3ff0, 0x1ff0];
 const REGION_CODE_OFFSET: usize = 0xf;
 const SEGA_HEADER_SIGNATURE: &[u8] = b"TMR SEGA";
 
 /// Struct to hold the analysis results for a Game Gear ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct GameGearAnalysis {
     /// The name of the source file.
     pub source_name: String,
     /// The identified region name (e.g., "USA").
     pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
     /// If the region is found in the header, or inferred from the filename.
     pub region_found: bool,
 }
 
 impl GameGearAnalysis {
-    /// Prints the analysis results to the console.
-    pub fn print(&self) {
+    /// Returns a printable String of the analysis results.
+    pub fn print(&self) -> String {
         let region_not_in_rom_header = if !self.region_found {
             "\nNote:         Region information not in ROM header, inferred from filename."
         } else {
             ""
         };
-        info!(
+        format!(
             "{}\n\
              System:       Sega Game Gear\n\
              Region:       {}\
              {}",
             self.source_name, self.region, region_not_in_rom_header
-        );
+        )
     }
 }
 
@@ -88,9 +91,12 @@ pub fn analyze_gamegear_data(
             .unwrap_or("Unknown".to_string());
     }
 
+    let region_mismatch = check_region_mismatch(source_name, &region);
+
     Ok(GameGearAnalysis {
-        region,
         source_name: source_name.to_string(),
+        region,
+        region_mismatch,
         region_found,
     })
 }

@@ -4,6 +4,8 @@ pub mod dispatcher;
 pub mod error;
 pub mod region;
 
+use serde::Serialize;
+
 use crate::console::gamegear::GameGearAnalysis;
 use crate::console::gb::GbAnalysis;
 use crate::console::gba::GbaAnalysis;
@@ -28,7 +30,8 @@ pub const SUPPORTED_ROM_EXTENSIONS: &[&str] = &[
     ".iso", ".bin", ".img", ".psx", // CD Systems
 ];
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
+#[serde(tag = "console")]
 pub enum RomAnalysisResult {
     GameGear(GameGearAnalysis),
     GB(GbAnalysis),
@@ -42,49 +45,63 @@ pub enum RomAnalysisResult {
     SNES(SnesAnalysis),
 }
 
+macro_rules! impl_rom_analysis_method {
+    ($fn_name:ident, $return_type:ty) => {
+        pub fn $fn_name(&self) -> $return_type {
+            match self {
+                RomAnalysisResult::GameGear(a) => a.$fn_name(),
+                RomAnalysisResult::GB(a) => a.$fn_name(),
+                RomAnalysisResult::GBA(a) => a.$fn_name(),
+                RomAnalysisResult::Genesis(a) => a.$fn_name(),
+                RomAnalysisResult::MasterSystem(a) => a.$fn_name(),
+                RomAnalysisResult::N64(a) => a.$fn_name(),
+                RomAnalysisResult::NES(a) => a.$fn_name(),
+                RomAnalysisResult::PSX(a) => a.$fn_name(),
+                RomAnalysisResult::SegaCD(a) => a.$fn_name(),
+                RomAnalysisResult::SNES(a) => a.$fn_name(),
+            }
+        }
+    };
+}
+
+macro_rules! impl_rom_analysis_accessor {
+    ($fn_name:ident, $field:ident, &$return_type:ty) => {
+        pub fn $fn_name(&self) -> &$return_type {
+            match self {
+                RomAnalysisResult::GameGear(a) => &a.$field,
+                RomAnalysisResult::GB(a) => &a.$field,
+                RomAnalysisResult::GBA(a) => &a.$field,
+                RomAnalysisResult::Genesis(a) => &a.$field,
+                RomAnalysisResult::MasterSystem(a) => &a.$field,
+                RomAnalysisResult::N64(a) => &a.$field,
+                RomAnalysisResult::NES(a) => &a.$field,
+                RomAnalysisResult::PSX(a) => &a.$field,
+                RomAnalysisResult::SegaCD(a) => &a.$field,
+                RomAnalysisResult::SNES(a) => &a.$field,
+            }
+        }
+    };
+    ($fn_name:ident, $field:ident, $return_type:ty) => {
+        pub fn $fn_name(&self) -> $return_type {
+            match self {
+                RomAnalysisResult::GameGear(a) => a.$field,
+                RomAnalysisResult::GB(a) => a.$field,
+                RomAnalysisResult::GBA(a) => a.$field,
+                RomAnalysisResult::Genesis(a) => a.$field,
+                RomAnalysisResult::MasterSystem(a) => a.$field,
+                RomAnalysisResult::N64(a) => a.$field,
+                RomAnalysisResult::NES(a) => a.$field,
+                RomAnalysisResult::PSX(a) => a.$field,
+                RomAnalysisResult::SegaCD(a) => a.$field,
+                RomAnalysisResult::SNES(a) => a.$field,
+            }
+        }
+    };
+}
+
 impl RomAnalysisResult {
-    pub fn print(&self) {
-        match self {
-            RomAnalysisResult::GameGear(a) => a.print(),
-            RomAnalysisResult::GB(a) => a.print(),
-            RomAnalysisResult::GBA(a) => a.print(),
-            RomAnalysisResult::Genesis(a) => a.print(),
-            RomAnalysisResult::MasterSystem(a) => a.print(),
-            RomAnalysisResult::N64(a) => a.print(),
-            RomAnalysisResult::NES(a) => a.print(),
-            RomAnalysisResult::PSX(a) => a.print(),
-            RomAnalysisResult::SegaCD(a) => a.print(),
-            RomAnalysisResult::SNES(a) => a.print(),
-        }
-    }
-
-    pub fn region(&self) -> &str {
-        match self {
-            RomAnalysisResult::GameGear(a) => &a.region,
-            RomAnalysisResult::GB(a) => &a.region,
-            RomAnalysisResult::GBA(a) => &a.region,
-            RomAnalysisResult::Genesis(a) => &a.region,
-            RomAnalysisResult::MasterSystem(a) => &a.region,
-            RomAnalysisResult::N64(a) => &a.region,
-            RomAnalysisResult::NES(a) => &a.region,
-            RomAnalysisResult::PSX(a) => &a.region,
-            RomAnalysisResult::SegaCD(a) => &a.region,
-            RomAnalysisResult::SNES(a) => &a.region,
-        }
-    }
-
-    pub fn source_name(&self) -> &str {
-        match self {
-            RomAnalysisResult::GameGear(a) => &a.source_name,
-            RomAnalysisResult::GB(a) => &a.source_name,
-            RomAnalysisResult::GBA(a) => &a.source_name,
-            RomAnalysisResult::Genesis(a) => &a.source_name,
-            RomAnalysisResult::MasterSystem(a) => &a.source_name,
-            RomAnalysisResult::N64(a) => &a.source_name,
-            RomAnalysisResult::NES(a) => &a.source_name,
-            RomAnalysisResult::PSX(a) => &a.source_name,
-            RomAnalysisResult::SegaCD(a) => &a.source_name,
-            RomAnalysisResult::SNES(a) => &a.source_name,
-        }
-    }
+    impl_rom_analysis_method!(print, String);
+    impl_rom_analysis_accessor!(source_name, source_name, &str);
+    impl_rom_analysis_accessor!(region, region, &str);
+    impl_rom_analysis_accessor!(region_mismatch, region_mismatch, bool);
 }

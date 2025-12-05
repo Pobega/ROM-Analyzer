@@ -3,13 +3,13 @@ use std::path::Path;
 
 use clap::{ArgAction, Parser};
 use env_logger;
-use log::{LevelFilter, error, warn};
+use log::{LevelFilter, error, info, warn};
 
 use rom_analyzer::RomAnalysisResult;
 use rom_analyzer::archive::chd::{ChdAnalysis, analyze_chd_file};
 use rom_analyzer::archive::zip::process_zip_file;
 use rom_analyzer::dispatcher::process_rom_data;
-use rom_analyzer::region::{check_region_mismatch, infer_region_from_filename};
+use rom_analyzer::region::infer_region_from_filename;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -25,6 +25,10 @@ struct Cli {
     /// Silence all output except errors
     #[clap(short, long, action = ArgAction::SetTrue)]
     quiet: bool,
+
+    /// Format output as JSON (suppresses everything except STDERR)
+    #[clap(short, long, action = ArgAction::SetTrue)]
+    json: bool,
 }
 
 fn get_file_extension_lowercase(file_path: &str) -> String {
@@ -82,6 +86,8 @@ fn main() {
 
     let mut had_error = false;
 
+    let mut json_results: Vec<RomAnalysisResult> = Vec::new();
+
     for file_path in &cli.file_paths {
         let path = Path::new(file_path);
 
@@ -102,24 +108,40 @@ fn main() {
         let result = process_single_file(file_path, path, file_name);
         match result {
             Ok(analysis) => {
-                analysis.print();
-                if check_region_mismatch(analysis.source_name(), analysis.region()) {
-                    let inferred_region =
-                        infer_region_from_filename(analysis.source_name()).unwrap_or("Unknown");
-                    warn!(
-                        "~~~ POSSIBLE REGION MISMATCH ~~~\n\
-                         Source file:          {}\n\
-                         Filename suggests:    {}\n\
-                         ROM Header claims:    {}\n\
-                         The ROM may be mislabeled or have been patched.",
-                        analysis.source_name(),
-                        inferred_region,
-                        analysis.region(),
-                    );
+                if cli.json {
+                    json_results.push(analysis);
+                } else {
+                    info!("{}", analysis.print());
+                    if analysis.region_mismatch() {
+                        let inferred_region =
+                            infer_region_from_filename(analysis.source_name()).unwrap_or("Unknown");
+                        warn!(
+                            "POSSIBLE REGION MISMATCH\n\
+                             Source file:          {}\n\
+                             Filename suggests:    {}\n\
+                             ROM Header claims:    {}\n\
+                             The ROM may be mislabeled or have been patched.",
+                            analysis.source_name(),
+                            inferred_region,
+                            analysis.region(),
+                        );
+                    }
                 }
             }
             Err(e) => {
                 error!("Error processing file {}: {}", file_path, e);
+                had_error = true;
+            }
+        }
+    }
+
+    if cli.json {
+        match serde_json::to_string_pretty(&json_results) {
+            Ok(json_output) => {
+                println!("{}", json_output);
+            }
+            Err(e) => {
+                eprintln!("Error serializing combined JSON output: {}", e);
                 had_error = true;
             }
         }

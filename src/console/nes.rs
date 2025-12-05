@@ -3,8 +3,10 @@
 /// https://www.nesdev.org/wiki/NES_2.0
 use std::error::Error;
 
+use serde::Serialize;
+
 use crate::error::RomAnalyzerError;
-use log::info;
+use crate::region::check_region_mismatch;
 
 const INES_REGION_BYTE: usize = 9;
 const INES_REGION_MASK: u8 = 0x01;
@@ -16,12 +18,14 @@ const NES2_FORMAT_MASK: u8 = 0x0C;
 const NES2_FORMAT_EXPECTED_VALUE: u8 = 0x08;
 
 /// Struct to hold the analysis results for a NES ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct NesAnalysis {
     /// The name of the source file.
     pub source_name: String,
     /// The identified region name (e.g., "NTSC (USA/Japan)").
     pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
     /// The raw byte value used for region determination (from iNES flag 9 or NES2 flag 12).
     pub region_byte_value: u8,
     /// Whether the ROM header is in NES 2.0 format.
@@ -29,21 +33,21 @@ pub struct NesAnalysis {
 }
 
 impl NesAnalysis {
-    /// Prints the analysis results to the console.
-    pub fn print(&self) {
+    /// Returns a printable String of the analysis results.
+    pub fn print(&self) -> String {
         let nes_flag_display = if self.is_nes2_format {
             format!("\nNES2.0 Flag 12: 0x{:02X}", self.region_byte_value)
         } else {
             format!("\niNES Flag 9:  0x{:02X}", self.region_byte_value)
         };
 
-        info!(
+        format!(
             "{}\n\
              System:       Nintendo Entertainment System (NES)\n\
              Region:       {}\
              {}",
             self.source_name, self.region, nes_flag_display
-        );
+        )
     }
 }
 
@@ -96,12 +100,14 @@ pub fn analyze_nes_data(data: &[u8], source_name: &str) -> Result<NesAnalysis, B
     }
 
     let region_name = get_nes_region_name(region_byte_val, is_nes2_format);
+    let region_mismatch = check_region_mismatch(source_name, &region_name);
 
     Ok(NesAnalysis {
-        region: region_name.to_string(),
-        is_nes2_format,
-        region_byte_value: region_byte_val,
         source_name: source_name.to_string(),
+        region: region_name.to_string(),
+        region_mismatch,
+        region_byte_value: region_byte_val,
+        is_nes2_format,
     })
 }
 

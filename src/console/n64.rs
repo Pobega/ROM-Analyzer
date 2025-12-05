@@ -2,31 +2,34 @@
 /// https://en64.shoutwiki.com/wiki/ROM
 use std::error::Error;
 
-use log::info;
+use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
+use crate::region::check_region_mismatch;
 
 /// Struct to hold the analysis results for an N64 ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct N64Analysis {
     /// The name of the source file.
     pub source_name: String,
     /// The identified region name (e.g., "USA / NTSC").
     pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
     /// The country code extracted from the ROM header (e.g., "E", "J").
     pub country_code: String,
 }
 
 impl N64Analysis {
-    /// Prints the analysis results to the console.
-    pub fn print(&self) {
-        info!(
+    /// Returns a printable String of the analysis results.
+    pub fn print(&self) -> String {
+        format!(
             "{}\n\
              System:       Nintendo 64 (N64)\n\
              Region:       {}\n\
              Code:         {}",
             self.source_name, self.region, self.country_code
-        );
+        )
     }
 }
 
@@ -61,10 +64,13 @@ pub fn analyze_n64_data(data: &[u8], source_name: &str) -> Result<N64Analysis, B
     }
     .to_string();
 
+    let region_mismatch = check_region_mismatch(source_name, &region_name);
+
     Ok(N64Analysis {
-        region: region_name,
-        country_code,
         source_name: source_name.to_string(),
+        region: region_name,
+        region_mismatch,
+        country_code,
     })
 }
 

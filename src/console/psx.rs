@@ -1,35 +1,39 @@
-use log::info;
-
-use crate::error::RomAnalyzerError;
 use std::error::Error;
 
+use serde::Serialize;
+
+use crate::error::RomAnalyzerError;
+use crate::region::check_region_mismatch;
+
 /// Struct to hold the analysis results for a PSX ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct PsxAnalysis {
     /// The name of the source file.
     pub source_name: String,
     /// The identified region name (e.g., "North America (NTSC-U)").
     pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
     /// The identified region code (e.g., "SLUS").
     pub code: String,
 }
 
 impl PsxAnalysis {
-    /// Prints the analysis results to the console.
-    pub fn print(&self) {
+    /// Returns a printable String of the analysis results.
+    pub fn print(&self) -> String {
         let executable_prefix_not_found = if self.code == "N/A" {
             "\nNote: Executable prefix (SLUS/SLES/SLPS) not found in header area. Requires main data track (.bin or .iso)."
         } else {
             ""
         };
-        info!(
+        format!(
             "{}\n\
              System:       Sony PlayStation (PSX)\n\
              Region:       {}\n\
              Code:         {}\
              {}",
             self.source_name, self.region, self.code, executable_prefix_not_found
-        );
+        )
     }
 }
 
@@ -66,10 +70,13 @@ pub fn analyze_psx_data(data: &[u8], source_name: &str) -> Result<PsxAnalysis, B
         }
     }
 
+    let region_mismatch = check_region_mismatch(source_name, &region_name);
+
     Ok(PsxAnalysis {
-        region: region_name.to_string(),
-        code: found_code,
         source_name: source_name.to_string(),
+        region: region_name.to_string(),
+        region_mismatch,
+        code: found_code,
     })
 }
 

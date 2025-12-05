@@ -2,9 +2,10 @@
 /// https://gbdev.io/pandocs/The_Cartridge_Header.html
 use std::error::Error;
 
-use log::info;
+use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
+use crate::region::check_region_mismatch;
 
 const GB_TITLE_START: usize = 0x134;
 const GB_TITLE_END: usize = 0x143;
@@ -14,12 +15,14 @@ const GBC_SYSTEM_TYPE: usize = 0x143;
 const GBC_TITLE_END: usize = 0x13F;
 
 /// Struct to hold the analysis results for a Game Boy ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct GbAnalysis {
     /// The name of the source file.
     pub source_name: String,
     /// The identified region name (e.g., "Japan").
     pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
     /// The identified system type (e.g., "Game Boy (GB)" or "Game Boy Color (GBC)").
     pub system_type: String,
     /// The game title extracted from the ROM header.
@@ -29,16 +32,16 @@ pub struct GbAnalysis {
 }
 
 impl GbAnalysis {
-    /// Prints the analysis results to the console.
-    pub fn print(&self) {
-        info!(
+    /// Returns a printable String of the analysis results.
+    pub fn print(&self) -> String {
+        format!(
             "{}\n\
              System:       {}\n\
              Game Title:   {}\n\
              Region Code:  0x{:02X}\n\
              Region:       {}",
             self.source_name, self.system_type, self.game_title, self.destination_code, self.region
-        );
+        )
     }
 }
 
@@ -80,12 +83,15 @@ pub fn analyze_gb_data(data: &[u8], source_name: &str) -> Result<GbAnalysis, Box
         _ => "Unknown Code",
     };
 
+    let region_mismatch = check_region_mismatch(source_name, region_name);
+
     Ok(GbAnalysis {
+        source_name: source_name.to_string(),
+        region: region_name.to_string(),
+        region_mismatch,
         system_type: system_type.to_string(),
         game_title,
         destination_code,
-        region: region_name.to_string(),
-        source_name: source_name.to_string(),
     })
 }
 

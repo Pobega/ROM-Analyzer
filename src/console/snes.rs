@@ -1,9 +1,12 @@
 /// Super Nintendo header documentation referenced here:
 /// https://snes.nesdev.org/wiki/ROM_header
-use log::{error, info};
 use std::error::Error;
 
+use log::error;
+use serde::Serialize;
+
 use crate::error::RomAnalyzerError;
+use crate::region::check_region_mismatch;
 
 // Map Mode byte offset relative to the header start (0x7FC0 for LoROM, 0xFFC0 for HiROM)
 const MAP_MODE_OFFSET: usize = 0x15;
@@ -13,24 +16,26 @@ const LOROM_MAP_MODES: &[u8] = &[0x20, 0x30, 0x25, 0x35];
 const HIROM_MAP_MODES: &[u8] = &[0x21, 0x31, 0x22, 0x32];
 
 /// Struct to hold the analysis results for a SNES ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct SnesAnalysis {
     /// The name of the source file.
     pub source_name: String,
+    /// The identified region name (e.g., "Japan (NTSC)").
+    pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
+    /// The raw region code byte.
+    pub region_code: u8,
     /// The game title extracted from the ROM header.
     pub game_title: String,
     /// The detected mapping type (e.g., "LoROM", "HiROM").
     pub mapping_type: String,
-    /// The raw region code byte.
-    pub region_code: u8,
-    /// The identified region name (e.g., "Japan (NTSC)").
-    pub region: String,
 }
 
 impl SnesAnalysis {
-    /// Prints the analysis results to the console.
-    pub fn print(&self) {
-        info!(
+    /// Returns a printable String of the analysis results.
+    pub fn print(&self) -> String {
+        format!(
             "{}\n\
              System:       Super Nintendo (SNES)\n\
              Game Title:   {}\n\
@@ -38,7 +43,7 @@ impl SnesAnalysis {
              Region Code:  0x{:02X}\n\
              Region:       {}",
             self.source_name, self.game_title, self.mapping_type, self.region_code, self.region
-        );
+        )
     }
 }
 
@@ -200,12 +205,15 @@ pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<SnesAnalysis,
         .trim()
         .to_string();
 
+    let region_mismatch = check_region_mismatch(source_name, &region_name);
+
     Ok(SnesAnalysis {
         source_name: source_name.to_string(),
+        region: region_name,
+        region_mismatch,
+        region_code,
         game_title,
         mapping_type,
-        region_code,
-        region: region_name,
     })
 }
 

@@ -2,34 +2,38 @@
 /// https://segaretro.org/ROM_header
 use std::error::Error;
 
-use log::{error, info};
+use log::error;
+use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
+use crate::region::check_region_mismatch;
 
 /// Struct to hold the analysis results for a Sega CD ROM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct SegaCdAnalysis {
-    /// The detected signature from the boot file (e.g., "SEGA CD", "SEGA MEGA").
-    pub signature: String,
-    /// The identified region name (e.g., "Japan (NTSC-J)").
-    pub region: String,
-    /// The raw region code byte.
-    pub region_code: u8,
     /// The name of the source file.
     pub source_name: String,
+    /// The identified region name (e.g., "Japan (NTSC-J)").
+    pub region: String,
+    /// If the region in the ROM header doesn't match the region in the filename.
+    pub region_mismatch: bool,
+    /// The raw region code byte.
+    pub region_code: u8,
+    /// The detected signature from the boot file (e.g., "SEGA CD", "SEGA MEGA").
+    pub signature: String,
 }
 
 impl SegaCdAnalysis {
-    /// Prints the analysis results to the console.
-    pub fn print(&self) {
-        info!(
+    /// Returns a printable String of the analysis results.
+    pub fn print(&self) -> String {
+        format!(
             "{}\n\
              System:       Sega CD / Mega CD\n\
              Signature:    {}\n\
              Region Code:  0x{:02X}\n\
              Region:       {}",
             self.source_name, self.signature, self.region_code, self.region
-        );
+        )
     }
 }
 
@@ -79,11 +83,14 @@ pub fn analyze_segacd_data(
         );
     }
 
+    let region_mismatch = check_region_mismatch(source_name, &region_name);
+
     Ok(SegaCdAnalysis {
-        signature,
-        region: region_name,
-        region_code,
         source_name: source_name.to_string(),
+        region: region_name,
+        region_mismatch,
+        region_code,
+        signature,
     })
 }
 
