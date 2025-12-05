@@ -109,7 +109,7 @@ fn main() {
         match result {
             Ok(analysis) => {
                 if cli.json {
-                    json_results.push(analysis.clone());
+                    json_results.push(analysis);
                 } else {
                     info!("{}", analysis.print());
                     if analysis.region_mismatch() {
