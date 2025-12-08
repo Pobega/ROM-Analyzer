@@ -242,7 +242,7 @@ fn process_rom_data(data: Vec<u8>, rom_path: &str) -> Result<RomAnalysisResult, 
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust
 /// use rom_analyzer::analyze_rom_data;
 ///
 /// let result = analyze_rom_data("path/to/your/rom.nes");

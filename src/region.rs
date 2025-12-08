@@ -4,12 +4,67 @@
 //! This module helps in identifying the target region (e.g., Japan, USA, Europe)
 //! of a ROM, which is crucial for accurate analysis and categorization.
 
+use std::fmt;
+
+use bitflags::bitflags;
+
+bitflags! {
+    /// A bitflag struct representing geographical regions.
+    /// Allows a ROM to belong to multiple regions (e.g., NES NTSC = USA + JAPAN).
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct Region: u8 {
+
+        const UNKNOWN = 0;
+        const JAPAN = 1 << 0;
+        const USA = 1 << 1;
+        const EUROPE = 1 << 2;
+        const RUSSIA = 1 << 3;
+        const ASIA = 1 << 4;
+        const CHINA = 1 << 5;
+        const KOREA = 1 << 6;
+
+        // Dynamic "WORLD" that matches all available regions and is safe.
+        const WORLD = Self::JAPAN.bits() | Self::USA.bits() | Self::EUROPE.bits() | Self::RUSSIA.bits();
+    }
+}
+
+impl fmt::Display for Region {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.is_empty() {
+            return write!(f, "Unknown");
+        }
+
+        // Handle the composite constant WORLD for cleaner output
+        if self.bits() == Region::WORLD.bits() {
+            return write!(f, "World");
+        }
+
+        // Collect the string names using a match statement
+        let regions: Vec<&str> = self
+            .iter()
+            .map(|flag| match flag {
+                Region::JAPAN => "Japan",
+                Region::USA => "USA",
+                Region::EUROPE => "Europe",
+                Region::RUSSIA => "Russia",
+                Region::ASIA => "Asia",
+                Region::CHINA => "China",
+                Region::KOREA => "Korea",
+                _ => "",
+            })
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        // Join multiple regions with forward slash (e.g. "Japan/USA")
+        write!(f, "{}", regions.join("/"))
+    }
+}
+
 /// Infers the geographical region of a ROM from its filename.
 ///
-/// This function examines the provided filename for common region indicators
-/// (e.g., "JP", "USA", "EUR", "PAL", NTSC-J, NTSC-U, NTSC-E, (J), (U), (E), \[J\], \[U\], \[E\])
-/// and returns a standardized region string if a match is found.
-/// The search is case-insensitive.
+/// This function examines the provided filename for common region indicators (e.g., "JP", "USA",
+/// "EUR", "PAL", NTSC-J, NTSC-U, NTSC-E, (J), (U), (E), \[J\], \[U\], \[E\]) and returns a
+/// standardized region string if a match is found. The search is case-insensitive.
 ///
 /// # Arguments
 ///
@@ -17,57 +72,52 @@
 ///
 /// # Returns
 ///
-/// An `Option<&'static str>` which is:
-/// - `Some("JAPAN")` if the filename indicates a Japanese region.
-/// - `Some("USA")` if the filename indicates a USA region.
-/// - `Some("EUROPE")` if the filename indicates a European region.
-/// - `None` if no region could be inferred from the filename.
+/// Returns a `Region` bitmask. If no region is found, returns `Region::UNKNOWN`.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use rom_analyzer::region::infer_region_from_filename;
+/// use rom_analyzer::region::{infer_region_from_filename, Region};
 ///
-/// assert_eq!(infer_region_from_filename("MyGame (J).zip"), Some("JAPAN"));
-/// assert_eq!(infer_region_from_filename("AnotherGame (USA).nes"), Some("USA"));
-/// assert_eq!(infer_region_from_filename("PAL_Game.sfc"), Some("EUROPE"));
-/// assert_eq!(infer_region_from_filename("UnknownGame.bin"), None);
+/// assert_eq!(infer_region_from_filename("MyGame (J).zip"), Region::JAPAN);
+/// assert_eq!(infer_region_from_filename("AnotherGame (USA).nes"), Region::USA);
+/// assert_eq!(infer_region_from_filename("PAL_Game.sfc"), Region::EUROPE);
+/// assert_eq!(infer_region_from_filename("UnknownGame.bin"), Region::UNKNOWN);
 /// ```
-pub fn infer_region_from_filename(name: &str) -> Option<&'static str> {
+pub fn infer_region_from_filename(name: &str) -> Region {
     let lower_name = name.to_lowercase();
+    let mut region = Region::UNKNOWN;
 
-    if lower_name.contains("jap")
-        || lower_name.contains("jp")
-        || lower_name.contains("(j)")
-        || lower_name.contains("[j]")
-        || lower_name.contains("ntsc-j")
-    {
-        Some("JAPAN")
-    } else if lower_name.contains("usa")
-        || lower_name.contains("(u)")
-        || lower_name.contains("[u]")
-        || lower_name.contains("ntsc-u")
-        || lower_name.contains("ntsc-us")
-    {
-        Some("USA")
-    } else if lower_name.contains("eur")
-        || lower_name.contains("(e)")
-        || lower_name.contains("[e]")
-        || lower_name.contains("pal")
-        || lower_name.contains("ntsc-e")
-    {
-        Some("EUROPE")
-    } else {
-        None
+    // Define region patterns with their corresponding flags
+    let region_patterns = [
+        (vec!["jap", "jp", "(j)", "[j]", "ntsc-j"], Region::JAPAN),
+        (vec!["usa", "(u)", "[u]", "ntsc-u", "ntsc-us"], Region::USA),
+        (vec!["eur", "(e)", "[e]", "pal", "ntsc-e"], Region::EUROPE),
+        (vec!["russia", "dendy"], Region::RUSSIA),
+        (vec!["(world)", "[world]", "(w)", "[w]"], Region::WORLD),
+    ];
+
+    // Check each pattern and set the corresponding region flag
+    for (patterns, flag) in region_patterns {
+        for pattern in patterns {
+            if lower_name.contains(pattern) {
+                region |= flag;
+                break;
+            }
+        }
     }
+
+    region
 }
 
-/// Normalizes a region string found in a ROM header to a standardized format.
+/// Normalizes a region string found in a ROM header to a standardized Region bitmask.
 ///
 /// This function takes a region string (e.g., from a ROM header) and attempts
-/// to map it to one of the standardized regions: "JAPAN", "USA", or "EUROPE".
+/// to map it to any of the standardized regions: "JAPAN", "USA", or "EUROPE".
 /// It handles various common spellings and codes (e.g., NTSC-J, SLUS, PAL)
 /// and performs a case-insensitive match.
+///
+/// Handles composite regions (like "NTSC" implying both USA and Japan).
 ///
 /// # Arguments
 ///
@@ -75,54 +125,105 @@ pub fn infer_region_from_filename(name: &str) -> Option<&'static str> {
 ///
 /// # Returns
 ///
-/// An `Option<&'static str>` which is:
-/// - `Some("JAPAN")` if the header text indicates a Japanese region.
-/// - `Some("USA")` if the header text indicates a USA region.
-/// - `Some("EUROPE")` if the header text indicates a European region.
-/// - `None` if the region could not be normalized.
+/// Returns a `Region` bitmask. If no region is found, returns `Region::UNKNOWN`.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use rom_analyzer::region::normalize_header_region;
+/// use rom_analyzer::region::{normalize_header_region, Region};
 ///
-/// assert_eq!(normalize_header_region("NTSC-J"), Some("JAPAN"));
-/// assert_eq!(normalize_header_region("SLUS_000.00"), Some("USA"));
-/// assert_eq!(normalize_header_region("PAL"), Some("EUROPE"));
-/// assert_eq!(normalize_header_region("UNKNOWN"), None);
+/// assert_eq!(normalize_header_region("NTSC-J"), Region::JAPAN);
+/// assert_eq!(normalize_header_region("SLUS_000.00"), Region::USA);
+/// assert_eq!(normalize_header_region("PAL"), Region::EUROPE);
+/// assert_eq!(normalize_header_region("UNKNOWN"), Region::UNKNOWN);
 /// ```
-pub fn normalize_header_region(header_text: &str) -> Option<&'static str> {
+// TODO: Gameboy has a 'Non-Japan' region, we need that to not match Japan somehow.
+// Perhaps we either detect that specifically and flip the Japan bit back over, or
+// we use bounding regexes ('^Japan$') to match everything.
+// TODO: we should also probably move some of this code into the consoles themselves.
+// We could make them match as "SLUS" -> Region::USA, and add a 'header_region' to
+// explicitly expose the region name from the header. This would also resolve the above
+// TODO, since we can map 'Non-Japan' to Region::USA and Region::EUROPE.
+pub fn normalize_header_region(header_text: &str) -> Region {
     let header_text = header_text.to_uppercase();
+    let mut region = Region::UNKNOWN;
 
-    if header_text.contains("JAPAN")
-        || header_text.contains("NTSC-J")
-        || header_text.contains("SLPS")
-    {
-        Some("JAPAN")
-    } else if header_text.contains("USA")
-        || header_text.contains("AMERICA")
-        || header_text.contains("NTSC-U")
-        || header_text.contains("SLUS")
-        || header_text.contains("CANADA")
-    {
-        Some("USA")
-    } else if header_text.contains("EUROPE")
-        || header_text.contains("PAL")
-        || header_text.contains("SLES")
-        || header_text.contains("OCEANIA")
-    {
-        Some("EUROPE")
-    } else {
-        None
+    // Define region patterns with their corresponding flags
+    let region_patterns = [
+        (
+            vec!["JAPAN", "NTSC-J", "SLPS", "NTSC USA/Japan"],
+            Region::JAPAN,
+        ),
+        (
+            vec![
+                "USA",
+                "AMERICA",
+                "NTSC-U",
+                "CANADA",
+                "SLUS",                   // PSX specific
+                "NTSC USA/Japan",         // NES specific
+                "SMS EXPORT",             // GameGear specific
+                "GAMEGEAR EXPORT",        // GameGear specific
+                "GAMEGEAR INTERNATIONAL", // GameGear specific
+            ],
+            Region::USA,
+        ),
+        (
+            vec![
+                "EUROPE",
+                "PAL",
+                "OCEANIA",
+                "SLES",                   // PSX specific
+                "SMS EXPORT",             // GameGear specific
+                "GAMEGEAR EXPORT",        // GameGear specific
+                "GAMEGEAR INTERNATIONAL", // GameGear specific
+            ],
+            Region::EUROPE,
+        ),
+        (vec!["RUSSIA", "DENDY"], Region::RUSSIA),
+        (vec!["ASIA (NTSC)", "TAIWAN (NTSC)"], Region::ASIA), // SNES specific
+        (vec!["CHINA (NTSC)"], Region::CHINA),                // SNES specific
+        (vec!["KOREA (NTSC)"], Region::KOREA),                // SNES specific
+        (vec!["MULTI-REGION"], Region::WORLD),
+    ];
+
+    // Check each pattern and set the corresponding region flag
+    for (patterns, flag) in region_patterns {
+        for pattern in patterns {
+            if header_text.contains(pattern) {
+                region |= flag;
+                break;
+            }
+        }
     }
+
+    region
 }
 
 /// Compare the inferred region (via filename) to the region in the ROM's header.
+///
+/// Returns `true` (mismatch) if:
+/// 1. Both filename and header have known regions.
+/// 2. They share NO common regions (intersection is empty).
+///
+/// If either is UNKNOWN, this returns `true` (mismatch).
+// TODO: consider if UNKNOWN should be a mismatch? Perhaps it should be surfaced as its own
+// separate error.
 pub fn check_region_mismatch(source_name: &str, region_name: &str) -> bool {
     let inferred_region = infer_region_from_filename(source_name);
-    let header_region_norm = normalize_header_region(region_name);
+    let header_region = normalize_header_region(region_name);
 
-    inferred_region != header_region_norm
+    // If neither region can be found, avoid a mismatch by returning early.
+    if inferred_region.is_empty() && header_region.is_empty() {
+        return false;
+    }
+
+    // If either region is unknown, return a mismatch.
+    if inferred_region.is_empty() || header_region.is_empty() {
+        return true;
+    }
+
+    !inferred_region.intersects(header_region)
 }
 
 #[cfg(test)]
@@ -131,82 +232,88 @@ mod tests {
 
     #[test]
     fn test_infer_region_from_filename_japan() {
-        assert_eq!(infer_region_from_filename("game (J).zip"), Some("JAPAN"));
-        assert_eq!(infer_region_from_filename("game [J].zip"), Some("JAPAN"));
+        assert_eq!(infer_region_from_filename("game (J).zip"), Region::JAPAN);
+        assert_eq!(infer_region_from_filename("game [J].zip"), Region::JAPAN);
         assert_eq!(
             infer_region_from_filename("game (Japan).zip"),
-            Some("JAPAN")
+            Region::JAPAN
         );
         assert_eq!(
             infer_region_from_filename("game (NTSC-J).zip"),
-            Some("JAPAN")
+            Region::JAPAN
         );
     }
 
     #[test]
     fn test_infer_region_from_filename_usa() {
-        assert_eq!(infer_region_from_filename("game (U).zip"), Some("USA"));
-        assert_eq!(infer_region_from_filename("game [U].zip"), Some("USA"));
-        assert_eq!(infer_region_from_filename("game (USA).zip"), Some("USA"));
-        assert_eq!(infer_region_from_filename("game (NTSC-U).zip"), Some("USA"));
+        assert_eq!(infer_region_from_filename("game (U).zip"), Region::USA);
+        assert_eq!(infer_region_from_filename("game [U].zip"), Region::USA);
+        assert_eq!(infer_region_from_filename("game (USA).zip"), Region::USA);
+        assert_eq!(infer_region_from_filename("game (NTSC-U).zip"), Region::USA);
         assert_eq!(
             infer_region_from_filename("game (NTSC-US).zip"),
-            Some("USA")
+            Region::USA
         );
     }
 
     #[test]
     fn test_infer_region_from_filename_europe() {
-        assert_eq!(infer_region_from_filename("game (E).zip"), Some("EUROPE"));
-        assert_eq!(infer_region_from_filename("game [E].zip"), Some("EUROPE"));
+        assert_eq!(infer_region_from_filename("game (E).zip"), Region::EUROPE);
+        assert_eq!(infer_region_from_filename("game [E].zip"), Region::EUROPE);
         assert_eq!(
             infer_region_from_filename("game (Europe).zip"),
-            Some("EUROPE")
+            Region::EUROPE
         );
-        assert_eq!(infer_region_from_filename("game (PAL).zip"), Some("EUROPE"));
+        assert_eq!(infer_region_from_filename("game (PAL).zip"), Region::EUROPE);
         assert_eq!(
             infer_region_from_filename("game (NTSC-E).zip"),
-            Some("EUROPE")
+            Region::EUROPE
         );
     }
 
     #[test]
     fn test_infer_region_from_filename_none() {
-        assert_eq!(infer_region_from_filename("game (unmarked).zip"), None);
-        assert_eq!(infer_region_from_filename("another game.zip"), None);
+        assert_eq!(
+            infer_region_from_filename("game (unmarked).zip"),
+            Region::UNKNOWN
+        );
+        assert_eq!(
+            infer_region_from_filename("another game.zip"),
+            Region::UNKNOWN
+        );
     }
 
     #[test]
     fn test_normalize_header_region_japan() {
-        assert_eq!(normalize_header_region("JAPAN"), Some("JAPAN"));
-        assert_eq!(normalize_header_region("NTSC-J"), Some("JAPAN"));
-        assert_eq!(normalize_header_region("SLPS-00001"), Some("JAPAN"));
-        assert_eq!(normalize_header_region("  japan  "), Some("JAPAN"));
+        assert_eq!(normalize_header_region("JAPAN"), Region::JAPAN);
+        assert_eq!(normalize_header_region("NTSC-J"), Region::JAPAN);
+        assert_eq!(normalize_header_region("SLPS-00001"), Region::JAPAN);
+        assert_eq!(normalize_header_region("  japan  "), Region::JAPAN);
     }
 
     #[test]
     fn test_normalize_header_region_usa() {
-        assert_eq!(normalize_header_region("USA"), Some("USA"));
-        assert_eq!(normalize_header_region("AMERICA"), Some("USA"));
-        assert_eq!(normalize_header_region("NTSC-U"), Some("USA"));
-        assert_eq!(normalize_header_region("SLUS-00001"), Some("USA"));
-        assert_eq!(normalize_header_region("CANADA"), Some("USA"));
-        assert_eq!(normalize_header_region("  usa  "), Some("USA"));
+        assert_eq!(normalize_header_region("USA"), Region::USA);
+        assert_eq!(normalize_header_region("AMERICA"), Region::USA);
+        assert_eq!(normalize_header_region("NTSC-U"), Region::USA);
+        assert_eq!(normalize_header_region("SLUS-00001"), Region::USA);
+        assert_eq!(normalize_header_region("CANADA"), Region::USA);
+        assert_eq!(normalize_header_region("  usa  "), Region::USA);
     }
 
     #[test]
     fn test_normalize_header_region_europe() {
-        assert_eq!(normalize_header_region("EUROPE"), Some("EUROPE"));
-        assert_eq!(normalize_header_region("PAL"), Some("EUROPE"));
-        assert_eq!(normalize_header_region("SLES-00001"), Some("EUROPE"));
-        assert_eq!(normalize_header_region("OCEANIA"), Some("EUROPE"));
-        assert_eq!(normalize_header_region("  europe  "), Some("EUROPE"));
+        assert_eq!(normalize_header_region("EUROPE"), Region::EUROPE);
+        assert_eq!(normalize_header_region("PAL"), Region::EUROPE);
+        assert_eq!(normalize_header_region("SLES-00001"), Region::EUROPE);
+        assert_eq!(normalize_header_region("OCEANIA"), Region::EUROPE);
+        assert_eq!(normalize_header_region("  europe  "), Region::EUROPE);
     }
 
     #[test]
     fn test_normalize_header_region_none() {
-        assert_eq!(normalize_header_region("UNKNOWN"), None);
-        assert_eq!(normalize_header_region("  random text  "), None);
+        assert_eq!(normalize_header_region("UNKNOWN"), Region::UNKNOWN);
+        assert_eq!(normalize_header_region("  random text  "), Region::UNKNOWN);
     }
 
     #[test]
@@ -290,5 +397,44 @@ mod tests {
         assert_eq!(check_region_mismatch("game (JapAn).zip", "JAPAN"), false);
         assert_eq!(check_region_mismatch("game (uSa).zip", "USA"), false);
         assert_eq!(check_region_mismatch("game (EuRoPe).zip", "EUROPE"), false);
+    }
+
+    #[test]
+    fn test_overlap_logic() {
+        // NES Example: Header says "NTSC", Filename says "(U)"
+        let filename_region = infer_region_from_filename("Contra (U).nes"); // USA
+        let header_region = normalize_header_region("NTSC (USA/Japan)"); // USA | JAPAN
+
+        // They should intersect (match), so mismatch is false
+        assert!(filename_region.intersects(header_region));
+        assert_eq!(
+            check_region_mismatch("Contra (U).nes", "NTSC (USA/Japan)"),
+            false
+        );
+    }
+
+    #[test]
+    fn test_strict_mismatch() {
+        // Filename says (E), Header says NTSC (USA|Japan)
+        let filename_region = infer_region_from_filename("Contra (E).nes"); // EUROPE
+        let header_region = normalize_header_region("NTSC"); // USA | JAPAN
+
+        // No intersection, so mismatch is true
+        assert!(!filename_region.intersects(header_region));
+        assert_eq!(check_region_mismatch("Contra (E).nes", "NTSC"), true);
+    }
+
+    #[test]
+    fn test_world_rom() {
+        // Filename says (W), Header says USA
+        // (W) implies USA | JAPAN | EUROPE
+        assert_eq!(check_region_mismatch("Game (W).bin", "USA"), false);
+    }
+
+    #[test]
+    fn test_multiple_region_filename_display() {
+        let filename = "Super Game (U) (J).nes";
+        let region = infer_region_from_filename(filename).to_string();
+        assert_eq!(region, "Japan/USA")
     }
 }

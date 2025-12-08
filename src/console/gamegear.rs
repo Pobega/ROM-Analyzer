@@ -123,9 +123,7 @@ pub fn analyze_gamegear_data(
     }
 
     if !region_found {
-        region = infer_region_from_filename(source_name)
-            .map(|s| s.to_string())
-            .unwrap_or("Unknown".to_string());
+        region = infer_region_from_filename(source_name).to_string();
     }
 
     let region_mismatch = check_region_mismatch(source_name, &region);
@@ -222,7 +220,7 @@ mod tests {
         let data = create_rom_data_with_header(0x7ff0, 0xF0);
         let analysis = analyze_gamegear_data(&data, "my_game_japan.gg")?;
         assert_eq!(analysis.source_name, "my_game_japan.gg");
-        assert_eq!(analysis.region, "JAPAN");
+        assert_eq!(analysis.region, "Japan");
         assert!(!analysis.region_found); // Still false because the header didn't provide a known region
         Ok(())
     }
@@ -252,7 +250,7 @@ mod tests {
         let data = vec![0; 0x100]; // Dummy data
         let analysis = analyze_gamegear_data(&data, "test_rom_jp.gg")?;
         assert_eq!(analysis.source_name, "test_rom_jp.gg");
-        assert_eq!(analysis.region, "JAPAN");
+        assert_eq!(analysis.region, "Japan");
         Ok(())
     }
 
@@ -261,7 +259,7 @@ mod tests {
         let data = vec![0; 0x100]; // Dummy data
         let analysis = analyze_gamegear_data(&data, "test_rom_eur.gg")?;
         assert_eq!(analysis.source_name, "test_rom_eur.gg");
-        assert_eq!(analysis.region, "EUROPE");
+        assert_eq!(analysis.region, "Europe");
         Ok(())
     }
 
