@@ -47,6 +47,54 @@ impl GbaAnalysis {
     }
 }
 
+/// Determines the Game Boy Advance game region name based on a given region byte.
+///
+/// The region byte typically comes from the ROM header. This function extracts the relevant bits
+/// from the byte and maps it to a human-readable region string and a Region bitmask.
+///
+/// # Arguments
+///
+/// * `region_byte` - The byte containing the region code, usually found in the ROM header.
+///
+/// # Returns
+///
+/// A tuple containing:
+/// - A `&'static str` representing the region as written in the ROM header (e.g., "USA", "Japan",
+///   "Europe") or "Unknown" if the region code is not recognized.
+/// - A `Region` bitmask representing the region(s) associated with the code.
+///
+/// # Examples
+///
+/// ```rust
+/// use rom_analyzer::console::gba::map_region;
+/// use rom_analyzer::region::Region;
+///
+/// let (region_str, region_mask) = map_region(0x00);
+/// assert_eq!(region_str, "Japan");
+/// assert_eq!(region_mask, Region::JAPAN);
+///
+/// let (region_str, region_mask) = map_region(0x01);
+/// assert_eq!(region_str, "USA");
+/// assert_eq!(region_mask, Region::USA);
+///
+/// let (region_str, region_mask) = map_region(0x02);
+/// assert_eq!(region_str, "Europe");
+/// assert_eq!(region_mask, Region::EUROPE);
+/// ```
+pub fn map_region(region_byte: u8) -> (&'static str, Region) {
+    match region_byte {
+        0x00 => ("Japan", Region::JAPAN),
+        0x01 => ("USA", Region::USA),
+        0x02 => ("Europe", Region::EUROPE),
+        // ASCII representations are also common
+        b'J' => ("Japan", Region::JAPAN),
+        b'U' => ("USA", Region::USA),
+        b'E' => ("Europe", Region::EUROPE),
+        b'P' => ("Europe", Region::EUROPE), // PAL
+        _ => ("Unknown", Region::UNKNOWN),
+    }
+}
+
 /// Analyzes Game Boy Advance (GBA) ROM data.
 ///
 /// This function reads the GBA ROM header to extract the game title, game code,
@@ -94,18 +142,7 @@ pub fn analyze_gba_data(data: &[u8], source_name: &str) -> Result<GbaAnalysis, B
     let region_code_byte = data[0xB4];
 
     // Determine region name based on the byte value.
-    // Common codes are numeric (0=JP, 1=US, 2=EU) or ASCII characters.
-    let (region_name, region) = match region_code_byte {
-        0x00 => ("Japan", Region::JAPAN),
-        0x01 => ("USA", Region::USA),
-        0x02 => ("Europe", Region::EUROPE),
-        // ASCII representations are also common
-        b'J' => ("Japan", Region::JAPAN),
-        b'U' => ("USA", Region::USA),
-        b'E' => ("Europe", Region::EUROPE),
-        b'P' => ("Europe", Region::EUROPE), // PAL
-        _ => ("Unknown", Region::UNKNOWN),
-    };
+    let (region_name, region) = map_region(region_code_byte);
 
     let region_mismatch = check_region_mismatch(source_name, region);
 

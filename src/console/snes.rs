@@ -55,59 +55,71 @@ impl SnesAnalysis {
     }
 }
 
-/// Helper function to get the SNES region name from a region code byte.
+/// Determines the SNES game region name based on a given region byte.
 ///
-/// This function maps a raw 8-bit region code, typically found in the SNES ROM header,
-/// to a human-readable string representing the geographical region or console variant.
+/// The region byte typically comes from the ROM header. This function extracts the relevant bits
+/// from the byte and maps it to a human-readable region string and a Region bitmask.
 ///
 /// # Arguments
 ///
-/// * `code` - The region code byte from the SNES ROM header.
+/// * `region_byte` - The byte containing the region code, usually found in the ROM header.
 ///
 /// # Returns
 ///
-/// A `String` containing the region name (e.g., "Japan (NTSC)", "Europe / Oceania / Asia (PAL)"),
-/// or "Unknown Region (0xXX)" if the code is not recognized.
+/// A tuple containing:
+/// - A `&'static str` representing the region as written in the ROM header (e.g., "Japan (NTSC)",
+///   "USA / Canada (NTSC)", etc.) or "Unknown" if the region code is not recognized.
+/// - A `Region` bitmask representing the region(s) associated with the code.
 ///
-pub fn get_snes_region(code: u8) -> (String, Region) {
-    let regions = vec![
-        (0x00, "Japan (NTSC)", Region::JAPAN),
-        (0x01, "USA / Canada (NTSC)", Region::USA),
-        (
-            0x02,
+/// # Examples
+///
+/// ```rust
+/// use rom_analyzer::console::snes::map_region;
+/// use rom_analyzer::region::Region;
+///
+/// let (region_str, region_mask) = map_region(0x00);
+/// assert_eq!(region_str, "Japan (NTSC)");
+/// assert_eq!(region_mask, Region::JAPAN);
+///
+/// let (region_str, region_mask) = map_region(0x01);
+/// assert_eq!(region_str, "USA / Canada (NTSC)");
+/// assert_eq!(region_mask, Region::USA);
+///
+/// let (region_str, region_mask) = map_region(0x02);
+/// assert_eq!(region_str, "Europe / Oceania / Asia (PAL)");
+/// assert_eq!(region_mask, Region::EUROPE | Region::ASIA);
+/// ```
+pub fn map_region(code: u8) -> (&'static str, Region) {
+    match code {
+        0x00 => ("Japan (NTSC)", Region::JAPAN),
+        0x01 => ("USA / Canada (NTSC)", Region::USA),
+        0x02 => (
             "Europe / Oceania / Asia (PAL)",
             Region::EUROPE | Region::ASIA,
         ),
-        (0x03, "Sweden / Scandinavia (PAL)", Region::EUROPE),
-        (0x04, "Finland (PAL)", Region::EUROPE),
-        (0x05, "Denmark (PAL)", Region::EUROPE),
-        (0x06, "France (PAL)", Region::EUROPE),
-        (0x07, "Netherlands (PAL)", Region::EUROPE),
-        (0x08, "Spain (PAL)", Region::EUROPE),
-        (0x09, "Germany (PAL)", Region::EUROPE),
-        (0x0A, "Italy (PAL)", Region::EUROPE),
-        (0x0B, "China (PAL)", Region::CHINA),
-        (0x0C, "Indonesia (PAL)", Region::EUROPE | Region::ASIA),
-        (0x0D, "South Korea (NTSC)", Region::KOREA),
-        (
-            0x0E,
+        0x03 => ("Sweden / Scandinavia (PAL)", Region::EUROPE),
+        0x04 => ("Finland (PAL)", Region::EUROPE),
+        0x05 => ("Denmark (PAL)", Region::EUROPE),
+        0x06 => ("France (PAL)", Region::EUROPE),
+        0x07 => ("Netherlands (PAL)", Region::EUROPE),
+        0x08 => ("Spain (PAL)", Region::EUROPE),
+        0x09 => ("Germany (PAL)", Region::EUROPE),
+        0x0A => ("Italy (PAL)", Region::EUROPE),
+        0x0B => ("China (PAL)", Region::CHINA),
+        0x0C => ("Indonesia (PAL)", Region::EUROPE | Region::ASIA),
+        0x0D => ("South Korea (NTSC)", Region::KOREA),
+        0x0E => (
             "Common / International",
             Region::USA | Region::EUROPE | Region::JAPAN | Region::ASIA,
         ),
-        (0x0F, "Canada (NTSC)", Region::USA),
-        (0x10, "Brazil (NTSC)", Region::USA),
-        (0x11, "Australia (PAL)", Region::EUROPE),
-        (0x12, "Other (Variation 1)", Region::UNKNOWN),
-        (0x13, "Other (Variation 2)", Region::UNKNOWN),
-        (0x14, "Other (Variation 3)", Region::UNKNOWN),
-    ];
-
-    for (c, name, region) in regions {
-        if c == code {
-            return (name.to_string(), region);
-        }
+        0x0F => ("Canada (NTSC)", Region::USA),
+        0x10 => ("Brazil (NTSC)", Region::USA),
+        0x11 => ("Australia (PAL)", Region::EUROPE),
+        0x12 => ("Other (Variation 1)", Region::UNKNOWN),
+        0x13 => ("Other (Variation 2)", Region::UNKNOWN),
+        0x14 => ("Other (Variation 3)", Region::UNKNOWN),
+        _ => ("Unknown", Region::UNKNOWN),
     }
-    (format!("Unknown Region (0x{:02X})", code), Region::UNKNOWN)
 }
 
 /// Helper function to validate the SNES ROM checksum.
@@ -260,7 +272,7 @@ pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<SnesAnalysis,
     // Extract region code and game title from the identified header.
     let region_byte_offset = valid_header_offset + 0x19; // Offset for region code within the header
     let region_code = data[region_byte_offset];
-    let (region_name, region) = get_snes_region(region_code);
+    let (region_name, region) = map_region(region_code);
 
     // Game title is located at the beginning of the header (offset 0x0 relative to valid_header_offset) for 21 bytes.
     // It is null-terminated, so we trim null bytes and leading/trailing whitespace.
@@ -274,7 +286,7 @@ pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<SnesAnalysis,
     Ok(SnesAnalysis {
         source_name: source_name.to_string(),
         region,
-        region_string: region_name,
+        region_string: region_name.to_string(),
         region_mismatch,
         region_code,
         game_title,
@@ -416,7 +428,7 @@ mod tests {
         assert_eq!(analysis.mapping_type, "LoROM (Map Mode Unverified)");
         assert_eq!(analysis.region_code, 0xFF);
         assert_eq!(analysis.region, Region::UNKNOWN);
-        assert_eq!(analysis.region_string, "Unknown Region (0xFF)");
+        assert_eq!(analysis.region_string, "Unknown");
         Ok(())
     }
 

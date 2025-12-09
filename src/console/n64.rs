@@ -20,7 +20,7 @@ pub struct N64Analysis {
     pub source_name: String,
     /// The identified region(s) as a region::Region bitmask.
     pub region: Region,
-    /// The identified region name (e.g., "USA / NTSC").
+    /// The identified region name (e.g., "USA (NTSC)").
     pub region_string: String,
     /// If the region in the ROM header doesn't match the region in the filename.
     pub region_mismatch: bool,
@@ -38,6 +38,56 @@ impl N64Analysis {
              Code:         {}",
             self.source_name, self.region, self.country_code
         )
+    }
+}
+
+/// Determines the N64 game region based on a given country code.
+///
+/// The country code typically comes from the ROM header. This function maps it to a
+/// human-readable region string and a Region bitmask.
+///
+/// # Arguments
+///
+/// * `country_code` - The country code string, usually found in the ROM header.
+///
+/// # Returns
+///
+/// A tuple containing:
+/// - A `&'static str` representing the region (e.g., "USA (NTSC)", "Japan (NTSC)", etc)
+///   or "Unknown" if the country code is not recognized.
+/// - A `Region` bitmask representing the region(s) associated with the code.
+///
+/// # Examples
+///
+/// ```rust
+/// use rom_analyzer::console::n64::map_region;
+/// use rom_analyzer::region::Region;
+///
+/// let (region_str, region_mask) = map_region("E");
+/// assert_eq!(region_str, "USA (NTSC)");
+/// assert_eq!(region_mask, Region::USA);
+///
+/// let (region_str, region_mask) = map_region("J");
+/// assert_eq!(region_str, "Japan (NTSC)");
+/// assert_eq!(region_mask, Region::JAPAN);
+///
+/// let (region_str, region_mask) = map_region("P");
+/// assert_eq!(region_str, "Europe (PAL)");
+/// assert_eq!(region_mask, Region::EUROPE);
+///
+/// let (region_str, region_mask) = map_region("X");
+/// assert_eq!(region_str, "Unknown");
+/// assert_eq!(region_mask, Region::UNKNOWN);
+/// ```
+pub fn map_region(country_code: &str) -> (&'static str, Region) {
+    match country_code {
+        "E" => ("USA (NTSC)", Region::USA),
+        "J" => ("Japan (NTSC)", Region::JAPAN),
+        "P" => ("Europe (PAL)", Region::EUROPE),
+        "D" => ("Germany (PAL)", Region::EUROPE),
+        "F" => ("France (PAL)", Region::EUROPE),
+        "U" => ("USA (Legacy)", Region::USA),
+        _ => ("Unknown", Region::UNKNOWN),
     }
 }
 
@@ -75,15 +125,7 @@ pub fn analyze_n64_data(data: &[u8], source_name: &str) -> Result<N64Analysis, B
         .to_string();
 
     // Determine region name based on the country code.
-    let (region_name, region) = match country_code.as_ref() {
-        "E" => ("USA / NTSC", Region::USA),
-        "J" => ("Japan / NTSC", Region::JAPAN),
-        "P" => ("Europe / PAL", Region::EUROPE),
-        "D" => ("Germany / PAL", Region::EUROPE),
-        "F" => ("France / PAL", Region::EUROPE),
-        "U" => ("USA (Legacy)", Region::USA), // Sometimes used, though 'E' is more common for US
-        _ => ("Unknown Code", Region::UNKNOWN),
-    };
+    let (region_name, region) = map_region(&country_code);
 
     let region_mismatch = check_region_mismatch(source_name, region);
 
@@ -120,7 +162,7 @@ mod tests {
 
         assert_eq!(analysis.source_name, "test_rom_us.n64");
         assert_eq!(analysis.region, Region::USA);
-        assert_eq!(analysis.region_string, "USA / NTSC");
+        assert_eq!(analysis.region_string, "USA (NTSC)");
         assert_eq!(analysis.country_code, "E");
         Ok(())
     }
@@ -132,7 +174,7 @@ mod tests {
 
         assert_eq!(analysis.source_name, "test_rom_jp.n64");
         assert_eq!(analysis.region, Region::JAPAN);
-        assert_eq!(analysis.region_string, "Japan / NTSC");
+        assert_eq!(analysis.region_string, "Japan (NTSC)");
         assert_eq!(analysis.country_code, "J");
         Ok(())
     }
@@ -144,7 +186,7 @@ mod tests {
 
         assert_eq!(analysis.source_name, "test_rom_eur.n64");
         assert_eq!(analysis.region, Region::EUROPE);
-        assert_eq!(analysis.region_string, "Europe / PAL");
+        assert_eq!(analysis.region_string, "Europe (PAL)");
         assert_eq!(analysis.country_code, "P");
         Ok(())
     }
@@ -156,7 +198,7 @@ mod tests {
 
         assert_eq!(analysis.source_name, "test_rom_deu.n64");
         assert_eq!(analysis.region, Region::EUROPE);
-        assert_eq!(analysis.region_string, "Germany / PAL");
+        assert_eq!(analysis.region_string, "Germany (PAL)");
         assert_eq!(analysis.country_code, "D");
         Ok(())
     }
@@ -168,7 +210,7 @@ mod tests {
 
         assert_eq!(analysis.source_name, "test_rom_fra.n64");
         assert_eq!(analysis.region, Region::EUROPE);
-        assert_eq!(analysis.region_string, "France / PAL");
+        assert_eq!(analysis.region_string, "France (PAL)");
         assert_eq!(analysis.country_code, "F");
         Ok(())
     }
@@ -192,7 +234,7 @@ mod tests {
 
         assert_eq!(analysis.source_name, "test_rom.n64");
         assert_eq!(analysis.region, Region::UNKNOWN);
-        assert_eq!(analysis.region_string, "Unknown Code");
+        assert_eq!(analysis.region_string, "Unknown");
         assert_eq!(analysis.country_code, "X");
         Ok(())
     }

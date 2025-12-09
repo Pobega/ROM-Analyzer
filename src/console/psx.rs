@@ -44,6 +44,53 @@ impl PsxAnalysis {
     }
 }
 
+/// Determines the PSX game region based on a given region code.
+///
+/// The region code typically comes from the ROM data. This function maps it to a
+/// human-readable region string and a Region bitmask.
+///
+/// # Arguments
+///
+/// * `region_code` - The region code string, usually found in the ROM data.
+///
+/// # Returns
+///
+/// A tuple containing:
+/// - A `&'static str` representing the region (e.g., "North America (NTSC-U)", "Europe (PAL)", etc)
+///   or "Unknown" if the region code is not recognized.
+/// - A `Region` bitmask representing the region(s) associated with the code.
+///
+/// # Examples
+///
+/// ```rust
+/// use rom_analyzer::console::psx::map_region;
+/// use rom_analyzer::region::Region;
+///
+/// let (region_str, region_mask) = map_region("SLUS");
+/// assert_eq!(region_str, "North America (NTSC-U)");
+/// assert_eq!(region_mask, Region::USA);
+///
+/// let (region_str, region_mask) = map_region("SLES");
+/// assert_eq!(region_str, "Europe (PAL)");
+/// assert_eq!(region_mask, Region::EUROPE);
+///
+/// let (region_str, region_mask) = map_region("SLPS");
+/// assert_eq!(region_str, "Japan (NTSC-J)");
+/// assert_eq!(region_mask, Region::JAPAN);
+///
+/// let (region_str, region_mask) = map_region("UNKNOWN");
+/// assert_eq!(region_str, "Unknown");
+/// assert_eq!(region_mask, Region::UNKNOWN);
+/// ```
+pub fn map_region(region_code: &str) -> (&'static str, Region) {
+    match region_code {
+        "SLUS" => ("North America (NTSC-U)", Region::USA),
+        "SLES" => ("Europe (PAL)", Region::EUROPE),
+        "SLPS" => ("Japan (NTSC-J)", Region::JAPAN),
+        _ => ("Unknown", Region::UNKNOWN),
+    }
+}
+
 /// Analyzes PlayStation (PSX) ROM data, typically from CD images.
 ///
 /// This function scans a portion of the ROM data (up to `0x20000` bytes) for
@@ -73,25 +120,22 @@ pub fn analyze_psx_data(data: &[u8], source_name: &str) -> Result<PsxAnalysis, B
 
     let data_sample = &data[..check_size];
 
-    let region_map = [
-        ("SLUS".as_bytes(), "North America (NTSC-U)", Region::USA),
-        ("SLES".as_bytes(), "Europe (PAL)", Region::EUROPE),
-        ("SLPS".as_bytes(), "Japan (NTSC-J)", Region::JAPAN),
-    ];
-
     let mut found_code = "N/A".to_string();
     let mut region_name = "Unknown";
     let mut region = Region::UNKNOWN;
 
-    for (prefix, region_string, region_struct) in region_map.iter() {
+    // TODO: Consider moving this somewhere else to centralize the logic into map_region()
+    // For now we'll live with these hardcoded prefixes.
+    for prefix in ["SLUS", "SLES", "SLPS"] {
         // Use windows to check for the prefix anywhere in the sample.
         if data_sample
             .windows(prefix.len())
-            .any(|window| window.eq_ignore_ascii_case(prefix))
+            .any(|window| window.eq_ignore_ascii_case(prefix.as_bytes()))
         {
-            found_code = String::from_utf8_lossy(prefix).to_string();
-            region_name = region_string;
-            region = region_struct.clone();
+            found_code = prefix.to_string();
+            let (region_str, region_mask) = map_region(prefix);
+            region_name = region_str;
+            region = region_mask;
             break;
         }
     }

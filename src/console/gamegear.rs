@@ -50,10 +50,10 @@ impl GameGearAnalysis {
     }
 }
 
-/// Determines the Game Gear region name based on a given region byte.
+/// Determines the Game Gear game region name based on a given region byte.
 ///
-/// The region byte typically comes from the ROM header. This function extracts the relevant nibble
-/// from the byte and maps it to a human-readable region string.
+/// The region byte typically comes from the ROM header. This function extracts the relevant bits
+/// from the byte and maps it to a human-readable region string and a Region bitmask.
 ///
 /// # Arguments
 ///
@@ -61,9 +61,30 @@ impl GameGearAnalysis {
 ///
 /// # Returns
 ///
-/// A `&'static str` representing the region as written in the ROM header (e.g., "GameGear Japan",
-/// "GameGear Export"), or "Unknown" if the region code is not recognized.
-pub fn get_gamegear_region_name(region_byte: u8) -> (&'static str, Region) {
+/// A tuple containing:
+/// - A `&'static str` representing the region as written in the ROM header (e.g., "SMS Japan",
+///   "GameGear International") or "Unknown" if the region code is not recognized.
+/// - A `Region` bitmask representing the region(s) associated with the code.
+///
+/// # Examples
+///
+/// ```rust
+/// use rom_analyzer::console::gamegear::map_region;
+/// use rom_analyzer::region::Region;
+///
+/// let (region_str, region_mask) = map_region(0x30);
+/// assert_eq!(region_str, "SMS Japan");
+/// assert_eq!(region_mask, Region::JAPAN);
+///
+/// let (region_str, region_mask) = map_region(0x60);
+/// assert_eq!(region_str, "GameGear Export");
+/// assert_eq!(region_mask, Region::USA | Region::EUROPE);
+///
+/// let (region_str, region_mask) = map_region(0x20);
+/// assert_eq!(region_str, "Unknown");
+/// assert_eq!(region_mask, Region::UNKNOWN);
+/// ```
+pub fn map_region(region_byte: u8) -> (&'static str, Region) {
     let region_code_value: u8 = region_byte >> 4;
     match region_code_value {
         0x3 => ("SMS Japan", Region::JAPAN),
@@ -113,10 +134,10 @@ pub fn analyze_gamegear_data(
     if let Some(header_start) = header_start_opt {
         debug!("Found signature at 0x{:x}", header_start);
         if let Some(&region_byte) = data.get(header_start + REGION_CODE_OFFSET) {
-            let (name, region_val) = get_gamegear_region_name(region_byte);
+            let (name, region_val) = map_region(region_byte);
             region_name = name.to_string();
             region = region_val;
-            if region_name != "Unknown" {
+            if region != Region::UNKNOWN {
                 region_found = true;
             }
         } else {
@@ -240,25 +261,22 @@ mod tests {
 
     #[test]
     fn test_analyze_gamegear_data_get_region_name() {
-        assert_eq!(get_gamegear_region_name(0x30), ("SMS Japan", Region::JAPAN));
+        assert_eq!(map_region(0x30), ("SMS Japan", Region::JAPAN));
         assert_eq!(
-            get_gamegear_region_name(0x40),
+            map_region(0x40),
             ("SMS Export", Region::USA | Region::EUROPE)
         );
+        assert_eq!(map_region(0x50), ("GameGear Japan", Region::JAPAN));
         assert_eq!(
-            get_gamegear_region_name(0x50),
-            ("GameGear Japan", Region::JAPAN)
-        );
-        assert_eq!(
-            get_gamegear_region_name(0x60),
+            map_region(0x60),
             ("GameGear Export", Region::USA | Region::EUROPE)
         );
         assert_eq!(
-            get_gamegear_region_name(0x70),
+            map_region(0x70),
             ("GameGear International", Region::USA | Region::EUROPE)
         );
-        assert_eq!(get_gamegear_region_name(0x00), ("Unknown", Region::UNKNOWN));
-        assert_eq!(get_gamegear_region_name(0xF0), ("Unknown", Region::UNKNOWN));
+        assert_eq!(map_region(0x00), ("Unknown", Region::UNKNOWN));
+        assert_eq!(map_region(0xF0), ("Unknown", Region::UNKNOWN));
     }
 
     #[test]

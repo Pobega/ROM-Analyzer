@@ -64,6 +64,63 @@ impl GenesisAnalysis {
     }
 }
 
+/// Determines the Sega Genesis/Mega Drive game region name based on a given region byte.
+///
+/// The region byte typically comes from the ROM header. This function extracts the relevant bits
+/// from the byte and maps it to a human-readable region string and a Region bitmask.
+///
+/// # Arguments
+///
+/// * `region_byte` - The byte containing the region code, usually found in the ROM header.
+///
+/// # Returns
+///
+/// A tuple containing:
+/// - A `&'static str` representing the region as written in the ROM header (e.g., "USA (NTSC-U)",
+///   "Europe (PAL)") or "Unknown" if the region code is not recognized.
+/// - A `Region` bitmask representing the region(s) associated with the code.
+///
+/// # Examples
+///
+/// ```rust
+/// use rom_analyzer::console::genesis::map_region;
+/// use rom_analyzer::region::Region;
+///
+/// let (region_str, region_mask) = map_region(b'U');
+/// assert_eq!(region_str, "USA (NTSC-U)");
+/// assert_eq!(region_mask, Region::USA);
+///
+/// let (region_str, region_mask) = map_region(b'J');
+/// assert_eq!(region_str, "Japan (NTSC-J)");
+/// assert_eq!(region_mask, Region::JAPAN);
+///
+/// let (region_str, region_mask) = map_region(b'X');
+/// assert_eq!(region_str, "Unknown");
+/// assert_eq!(region_mask, Region::UNKNOWN);
+///
+/// let (region_str, region_mask) = map_region(0x34);
+/// assert_eq!(region_str, "USA/Europe (NTSC/PAL)");
+/// assert!(region_mask.contains(Region::USA));
+/// assert!(region_mask.contains(Region::EUROPE));
+/// ```
+pub fn map_region(region_byte: u8) -> (&'static str, Region) {
+    match region_byte {
+        b'J' => ("Japan (NTSC-J)", Region::JAPAN),
+        b'U' => ("USA (NTSC-U)", Region::USA),
+        b'E' => ("Europe (PAL)", Region::EUROPE),
+        b'A' => ("Asia (NTSC)", Region::ASIA),
+        b'B' => ("Brazil (PAL-M)", Region::EUROPE),
+        b'C' => ("China (NTSC)", Region::CHINA),
+        b'F' => ("France (PAL)", Region::EUROPE),
+        b'K' => ("Korea (NTSC)", Region::KOREA),
+        b'L' => ("UK (PAL)", Region::EUROPE),
+        b'S' => ("Scandinavia (PAL)", Region::EUROPE),
+        b'T' => ("Taiwan (NTSC)", Region::ASIA),
+        0x34 => ("USA/Europe (NTSC/PAL)", Region::USA | Region::EUROPE),
+        _ => ("Unknown", Region::UNKNOWN),
+    }
+}
+
 /// Analyzes Sega Genesis/Mega Drive ROM data.
 ///
 /// This function reads the ROM header to extract the console name (e.g., "SEGA MEGA DRIVE", "SEGA
@@ -129,21 +186,7 @@ pub fn analyze_genesis_data(
     // Region Code byte is at offset 0x1F0 (which is 0xF0 relative to header_start)
     let region_code_byte = data[REGION_CODE_BYTE];
 
-    let (region_name, region) = match region_code_byte {
-        b'J' => ("Japan (NTSC-J)", Region::JAPAN),
-        b'U' => ("USA (NTSC-U)", Region::USA),
-        b'E' => ("Europe (PAL)", Region::EUROPE),
-        b'A' => ("Asia (NTSC)", Region::ASIA),
-        b'B' => ("Brazil (PAL-M)", Region::EUROPE),
-        b'C' => ("China (NTSC)", Region::CHINA),
-        b'F' => ("France (PAL)", Region::EUROPE),
-        b'K' => ("Korea (NTSC)", Region::KOREA),
-        b'L' => ("UK (PAL)", Region::EUROPE),
-        b'S' => ("Scandinavia (PAL)", Region::EUROPE),
-        b'T' => ("Taiwan (NTSC)", Region::ASIA),
-        0x34 => ("USA/Europe (NTSC/PAL)", Region::USA | Region::EUROPE),
-        _ => ("Unknown Code", Region::UNKNOWN),
-    };
+    let (region_name, region) = map_region(region_code_byte);
 
     let region_mismatch = check_region_mismatch(source_name, region);
 
@@ -269,7 +312,7 @@ mod tests {
 
         assert_eq!(analysis.source_name, "test_rom_unknown.md");
         assert_eq!(analysis.region, Region::UNKNOWN);
-        assert_eq!(analysis.region_string, "Unknown Code");
+        assert_eq!(analysis.region_string, "Unknown");
         assert_eq!(analysis.region_code_byte, b'Z');
         Ok(())
     }

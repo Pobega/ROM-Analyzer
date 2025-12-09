@@ -44,6 +44,58 @@ impl SegaCdAnalysis {
     }
 }
 
+/// Determines the Sega CD game region based on a given region byte.
+///
+/// The region byte typically comes from the ROM header. This function extracts the relevant bits
+/// from the byte and maps it to a human-readable region string and a Region bitmask.
+///
+/// # Arguments
+///
+/// * `region_byte` - The byte containing the region code, usually found in the ROM header.
+///
+/// # Returns
+///
+/// A tuple containing:
+/// - A `&'static str` representing the region as written in the ROM header (e.g., "Japan (NTSC-J)",
+///   "Europe (PAL)", etc) or "Unknown" if the region code is not recognized.
+/// - A `Region` bitmask representing the region(s) associated with the code.
+///
+/// # Examples
+///
+/// ```rust
+/// use rom_analyzer::console::segacd::map_region;
+/// use rom_analyzer::region::Region;
+///
+/// let (region_str, region_mask) = map_region(0x40);
+/// assert_eq!(region_str, "Japan (NTSC-J)");
+/// assert_eq!(region_mask, Region::JAPAN);
+///
+/// let (region_str, region_mask) = map_region(0x80);
+/// assert_eq!(region_str, "Europe (PAL)");
+/// assert_eq!(region_mask, Region::EUROPE);
+///
+/// let (region_str, region_mask) = map_region(0x00);
+/// assert_eq!(region_str, "Unrestricted/BIOS region");
+/// assert_eq!(region_mask, Region::USA | Region::EUROPE | Region::JAPAN);
+///
+/// let (region_str, region_mask) = map_region(0xDF);
+/// assert_eq!(region_str, "Unknown");
+/// assert_eq!(region_mask, Region::UNKNOWN);
+/// ```
+pub fn map_region(region_byte: u8) -> (&'static str, Region) {
+    match region_byte {
+        0x40 => ("Japan (NTSC-J)", Region::JAPAN),
+        0x80 => ("Europe (PAL)", Region::EUROPE),
+        0xC0 => ("USA (NTSC-U)", Region::USA),
+        0x00 => (
+            // May indicate region-free or BIOS-dependent.
+            "Unrestricted/BIOS region",
+            Region::USA | Region::EUROPE | Region::JAPAN,
+        ),
+        _ => ("Unknown", Region::UNKNOWN),
+    }
+}
+
 /// Analyzes Sega CD ROM data.
 ///
 /// This function reads the Sega CD boot program header to extract its signature
@@ -87,17 +139,7 @@ pub fn analyze_segacd_data(
     // Region byte is at offset 0x10B in the boot program.
     let region_code = data[0x10B];
 
-    let (region_name, region) = match region_code {
-        0x40 => ("Japan (NTSC-J)", Region::JAPAN),
-        0x80 => ("Europe (PAL)", Region::EUROPE),
-        0xC0 => ("USA (NTSC-U)", Region::USA),
-        0x00 => (
-            // May indicate region-free or BIOS-dependent.
-            "Unrestricted/BIOS region",
-            Region::USA | Region::EUROPE | Region::JAPAN,
-        ),
-        _ => ("Unknown Code", Region::UNKNOWN),
-    };
+    let (region_name, region) = map_region(region_code);
 
     // If the signature is not recognized, we might still proceed if the region byte is present,
     // but a warning could be logged or returned.
@@ -221,7 +263,7 @@ mod tests {
         assert_eq!(analysis.signature, "SEGA CD");
         assert_eq!(analysis.region_code, 0xFF);
         assert_eq!(analysis.region, Region::UNKNOWN);
-        assert_eq!(analysis.region_string, "Unknown Code");
+        assert_eq!(analysis.region_string, "Unknown");
         Ok(())
     }
 

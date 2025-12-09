@@ -53,6 +53,48 @@ impl GbAnalysis {
     }
 }
 
+/// Determines the Game Boy game region based on a given region byte.
+///
+/// The region byte typically comes from the ROM header. This function extracts the relevant bits
+/// from the byte and maps it to a human-readable region string and a Region bitmask.
+///
+/// # Arguments
+///
+/// * `region_byte` - The byte containing the region code, usually found in the ROM header.
+///
+/// # Returns
+///
+/// A tuple containing:
+/// - A `&'static str` representing the region as written in the ROM header (e.g., "Japan",
+///   "Non-Japan (International)") or "Unknown" if the region code is not recognized.
+/// - A `Region` bitmask representing the region(s) associated with the code.
+///
+/// # Examples
+///
+/// ```rust
+/// use rom_analyzer::console::gb::map_region;
+/// use rom_analyzer::region::Region;
+///
+/// let (region_str, region_mask) = map_region(0x00);
+/// assert_eq!(region_str, "Japan");
+/// assert_eq!(region_mask, Region::JAPAN);
+///
+/// let (region_str, region_mask) = map_region(0x01);
+/// assert_eq!(region_str, "Non-Japan (International)");
+/// assert_eq!(region_mask, Region::USA | Region::EUROPE);
+///
+/// let (region_str, region_mask) = map_region(0x02);
+/// assert_eq!(region_str, "Unknown");
+/// assert_eq!(region_mask, Region::UNKNOWN);
+/// ```
+pub fn map_region(region_byte: u8) -> (&'static str, Region) {
+    match region_byte {
+        0x00 => ("Japan", Region::JAPAN),
+        0x01 => ("Non-Japan (International)", Region::USA | Region::EUROPE),
+        _ => ("Unknown", Region::UNKNOWN),
+    }
+}
+
 /// Analyzes Game Boy (GB) and Game Boy Color (GBC) ROM data.
 ///
 /// This function reads the ROM header to determine the system type (GB or GBC),
@@ -99,11 +141,7 @@ pub fn analyze_gb_data(data: &[u8], source_name: &str) -> Result<GbAnalysis, Box
         .to_string();
 
     let destination_code = data[GB_DESTINATION];
-    let (region_name, region) = match destination_code {
-        0x00 => ("Japan", Region::JAPAN),
-        0x01 => ("Non-Japan (International)", Region::USA | Region::EUROPE),
-        _ => ("Unknown Code", Region::UNKNOWN),
-    };
+    let (region_name, region) = map_region(destination_code);
 
     let region_mismatch = check_region_mismatch(source_name, region);
 
@@ -241,7 +279,7 @@ mod tests {
 
         assert_eq!(analysis.source_name, "test_rom_unknown.gb");
         assert_eq!(analysis.region, Region::UNKNOWN);
-        assert_eq!(analysis.region_string, "Unknown Code");
+        assert_eq!(analysis.region_string, "Unknown");
         Ok(())
     }
 

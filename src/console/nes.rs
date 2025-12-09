@@ -71,9 +71,28 @@ impl NesAnalysis {
 ///
 /// # Returns
 ///
-/// A `&'static str` representing the region (e.g., "NTSC (USA/Japan)", "PAL (Europe/Oceania)"),
-/// or "Unknown" if the region code is not recognized.
-pub fn get_nes_region(region_byte: u8, nes2_format: bool) -> (&'static str, Region) {
+/// A tuple containing:
+/// - A `&'static str` representing the region as written in the ROM header (e.g., "Multi-region",
+///  "PAL (Europe/Oceania)", "NTSC (USA/Japan)") or "Unknown" if the region code is not recognized.
+/// - A `Region` bitmask representing the region(s) associated with the code.
+///
+/// # Examples
+///
+/// ```rust
+/// use rom_analyzer::console::nes::map_region;
+/// use rom_analyzer::region::Region;
+///
+/// // Test NES 2.0 format with NTSC region
+/// let (region_str, region_mask) = map_region(0x00, true);
+/// assert_eq!(region_str, "NTSC (USA/Japan)");
+/// assert_eq!(region_mask, Region::USA | Region::JAPAN);
+///
+/// // Test iNES format with PAL region
+/// let (region_str, region_mask) = map_region(0x01, false);
+/// assert_eq!(region_str, "PAL (Europe/Oceania)");
+/// assert_eq!(region_mask, Region::EUROPE);
+/// ```
+pub fn map_region(region_byte: u8, nes2_format: bool) -> (&'static str, Region) {
     if nes2_format {
         // NES 2.0 headers store region data in the CPU/PPU timing bit
         // in byte 12.
@@ -137,7 +156,7 @@ pub fn analyze_nes_data(data: &[u8], source_name: &str) -> Result<NesAnalysis, B
         region_byte_val = data[NES2_REGION_BYTE];
     }
 
-    let (region_name, region) = get_nes_region(region_byte_val, is_nes2_format);
+    let (region_name, region) = map_region(region_byte_val, is_nes2_format);
     let region_mismatch = check_region_mismatch(source_name, region);
 
     Ok(NesAnalysis {
@@ -171,7 +190,7 @@ mod tests {
         match header_type {
             NesHeaderType::Ines => {
                 // iNES format: region is in byte 9. Only the LSB (INES_REGION_MASK) matters.
-                // We set the byte and let get_nes_region handle the masking.
+                // We set the byte and let map_region handle the masking.
                 data[INES_REGION_BYTE] = region_value;
                 // Ensure NES 2.0 flags are NOT set in byte 7.
                 data[NES2_FORMAT_BYTE] &= !NES2_FORMAT_MASK;
@@ -180,7 +199,7 @@ mod tests {
                 // NES 2.0 format: set NES 2.0 identification bits in byte 7.
                 data[NES2_FORMAT_BYTE] |= NES2_FORMAT_EXPECTED_VALUE;
                 // Region is in byte 12, masked by NES2_REGION_MASK.
-                // We set the byte and let get_nes_region handle the masking.
+                // We set the byte and let map_region handle the masking.
                 data[NES2_REGION_BYTE] = region_value;
             }
         }
