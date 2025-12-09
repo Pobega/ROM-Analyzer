@@ -8,15 +8,17 @@ use std::error::Error;
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
-use crate::region::check_region_mismatch;
+use crate::region::{Region, check_region_mismatch};
 
 /// Struct to hold the analysis results for a PSX ROM.
 #[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct PsxAnalysis {
     /// The name of the source file.
     pub source_name: String,
+    /// The identified region(s) as a region::Region bitmask.
+    pub region: Region,
     /// The identified region name (e.g., "North America (NTSC-U)").
-    pub region: String,
+    pub region_string: String,
     /// If the region in the ROM header doesn't match the region in the filename.
     pub region_mismatch: bool,
     /// The identified region code (e.g., "SLUS").
@@ -72,22 +74,24 @@ pub fn analyze_psx_data(data: &[u8], source_name: &str) -> Result<PsxAnalysis, B
     let data_sample = &data[..check_size];
 
     let region_map = [
-        ("SLUS".as_bytes(), "North America (NTSC-U)"),
-        ("SLES".as_bytes(), "Europe (PAL)"),
-        ("SLPS".as_bytes(), "Japan (NTSC-J)"),
+        ("SLUS".as_bytes(), "North America (NTSC-U)", Region::USA),
+        ("SLES".as_bytes(), "Europe (PAL)", Region::EUROPE),
+        ("SLPS".as_bytes(), "Japan (NTSC-J)", Region::JAPAN),
     ];
 
     let mut found_code = "N/A".to_string();
     let mut region_name = "Unknown";
+    let mut region = Region::UNKNOWN;
 
-    for (prefix, region) in region_map.iter() {
+    for (prefix, region_string, region_struct) in region_map.iter() {
         // Use windows to check for the prefix anywhere in the sample.
         if data_sample
             .windows(prefix.len())
             .any(|window| window.eq_ignore_ascii_case(prefix))
         {
             found_code = String::from_utf8_lossy(prefix).to_string();
-            region_name = region;
+            region_name = region_string;
+            region = region_struct.clone();
             break;
         }
     }
@@ -96,7 +100,8 @@ pub fn analyze_psx_data(data: &[u8], source_name: &str) -> Result<PsxAnalysis, B
 
     Ok(PsxAnalysis {
         source_name: source_name.to_string(),
-        region: region_name.to_string(),
+        region,
+        region_string: region_name.to_string(),
         region_mismatch,
         code: found_code,
     })
@@ -116,7 +121,8 @@ mod tests {
         let analysis = analyze_psx_data(&data, "test_rom_us.iso")?;
 
         assert_eq!(analysis.source_name, "test_rom_us.iso");
-        assert_eq!(analysis.region, "North America (NTSC-U)");
+        assert_eq!(analysis.region, Region::USA);
+        assert_eq!(analysis.region_string, "North America (NTSC-U)");
         assert_eq!(analysis.code, "SLUS");
         Ok(())
     }
@@ -128,7 +134,8 @@ mod tests {
         let analysis = analyze_psx_data(&data, "test_rom_eur.iso")?;
 
         assert_eq!(analysis.source_name, "test_rom_eur.iso");
-        assert_eq!(analysis.region, "Europe (PAL)");
+        assert_eq!(analysis.region, Region::EUROPE);
+        assert_eq!(analysis.region_string, "Europe (PAL)");
         assert_eq!(analysis.code, "SLES");
         Ok(())
     }
@@ -140,7 +147,8 @@ mod tests {
         let analysis = analyze_psx_data(&data, "test_rom_jp.iso")?;
 
         assert_eq!(analysis.source_name, "test_rom_jp.iso");
-        assert_eq!(analysis.region, "Japan (NTSC-J)");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan (NTSC-J)");
         assert_eq!(analysis.code, "SLPS");
         Ok(())
     }
@@ -152,7 +160,8 @@ mod tests {
         let analysis = analyze_psx_data(&data, "test_rom.iso")?;
 
         assert_eq!(analysis.source_name, "test_rom.iso");
-        assert_eq!(analysis.region, "Unknown");
+        assert_eq!(analysis.region, Region::UNKNOWN);
+        assert_eq!(analysis.region_string, "Unknown");
         assert_eq!(analysis.code, "N/A");
         Ok(())
     }
@@ -174,7 +183,8 @@ mod tests {
         let analysis = analyze_psx_data(&data, "test_rom_mixedcase.iso")?;
 
         assert_eq!(analysis.source_name, "test_rom_mixedcase.iso");
-        assert_eq!(analysis.region, "North America (NTSC-U)");
+        assert_eq!(analysis.region, Region::USA);
+        assert_eq!(analysis.region_string, "North America (NTSC-U)");
         assert_eq!(analysis.code, "SLUS");
         Ok(())
     }

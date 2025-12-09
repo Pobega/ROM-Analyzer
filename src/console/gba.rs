@@ -17,7 +17,6 @@ use crate::region::{Region, check_region_mismatch};
 #[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct GbaAnalysis {
     /// The name of the source file.
-    // TODO: all of these Strings should maybe be &str references?
     pub source_name: String,
     /// The identified region(s) as a region::Region bitmask.
     pub region: Region,

@@ -12,7 +12,7 @@ use log::error;
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
-use crate::region::check_region_mismatch;
+use crate::region::{Region, check_region_mismatch};
 
 // Map Mode byte offset relative to the header start (0x7FC0 for LoROM, 0xFFC0 for HiROM)
 const MAP_MODE_OFFSET: usize = 0x15;
@@ -26,8 +26,10 @@ const HIROM_MAP_MODES: &[u8] = &[0x21, 0x31, 0x22, 0x32];
 pub struct SnesAnalysis {
     /// The name of the source file.
     pub source_name: String,
+    /// The identified region(s) as a region::Region bitmask.
+    pub region: Region,
     /// The identified region name (e.g., "Japan (NTSC)").
-    pub region: String,
+    pub region_string: String,
     /// If the region in the ROM header doesn't match the region in the filename.
     pub region_mismatch: bool,
     /// The raw region code byte.
@@ -66,36 +68,46 @@ impl SnesAnalysis {
 ///
 /// A `String` containing the region name (e.g., "Japan (NTSC)", "Europe / Oceania / Asia (PAL)"),
 /// or "Unknown Region (0xXX)" if the code is not recognized.
-pub fn get_snes_region_name(code: u8) -> String {
+///
+pub fn get_snes_region(code: u8) -> (String, Region) {
     let regions = vec![
-        (0x00, "Japan (NTSC)"),
-        (0x01, "USA / Canada (NTSC)"),
-        (0x02, "Europe / Oceania / Asia (PAL)"),
-        (0x03, "Sweden / Scandinavia (PAL)"),
-        (0x04, "Finland (PAL)"),
-        (0x05, "Denmark (PAL)"),
-        (0x06, "France (PAL)"),
-        (0x07, "Netherlands (PAL)"),
-        (0x08, "Spain (PAL)"),
-        (0x09, "Germany (PAL)"),
-        (0x0A, "Italy (PAL)"),
-        (0x0B, "China (PAL)"),
-        (0x0C, "Indonesia (PAL)"),
-        (0x0D, "South Korea (NTSC)"),
-        (0x0E, "Common / International"),
-        (0x0F, "Canada (NTSC)"),
-        (0x10, "Brazil (NTSC)"),
-        (0x11, "Australia (PAL)"),
-        (0x12, "Other (Variation 1)"),
-        (0x13, "Other (Variation 2)"),
-        (0x14, "Other (Variation 3)"),
+        (0x00, "Japan (NTSC)", Region::JAPAN),
+        (0x01, "USA / Canada (NTSC)", Region::USA),
+        (
+            0x02,
+            "Europe / Oceania / Asia (PAL)",
+            Region::EUROPE | Region::ASIA,
+        ),
+        (0x03, "Sweden / Scandinavia (PAL)", Region::EUROPE),
+        (0x04, "Finland (PAL)", Region::EUROPE),
+        (0x05, "Denmark (PAL)", Region::EUROPE),
+        (0x06, "France (PAL)", Region::EUROPE),
+        (0x07, "Netherlands (PAL)", Region::EUROPE),
+        (0x08, "Spain (PAL)", Region::EUROPE),
+        (0x09, "Germany (PAL)", Region::EUROPE),
+        (0x0A, "Italy (PAL)", Region::EUROPE),
+        (0x0B, "China (PAL)", Region::CHINA),
+        (0x0C, "Indonesia (PAL)", Region::EUROPE | Region::ASIA),
+        (0x0D, "South Korea (NTSC)", Region::KOREA),
+        (
+            0x0E,
+            "Common / International",
+            Region::USA | Region::EUROPE | Region::JAPAN | Region::ASIA,
+        ),
+        (0x0F, "Canada (NTSC)", Region::USA),
+        (0x10, "Brazil (NTSC)", Region::USA),
+        (0x11, "Australia (PAL)", Region::EUROPE),
+        (0x12, "Other (Variation 1)", Region::UNKNOWN),
+        (0x13, "Other (Variation 2)", Region::UNKNOWN),
+        (0x14, "Other (Variation 3)", Region::UNKNOWN),
     ];
-    for (c, name) in regions {
+
+    for (c, name, region) in regions {
         if c == code {
-            return name.to_string();
+            return (name.to_string(), region);
         }
     }
-    format!("Unknown Region (0x{:02X})", code)
+    (format!("Unknown Region (0x{:02X})", code), Region::UNKNOWN)
 }
 
 /// Helper function to validate the SNES ROM checksum.
@@ -248,7 +260,7 @@ pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<SnesAnalysis,
     // Extract region code and game title from the identified header.
     let region_byte_offset = valid_header_offset + 0x19; // Offset for region code within the header
     let region_code = data[region_byte_offset];
-    let region_name = get_snes_region_name(region_code);
+    let (region_name, region) = get_snes_region(region_code);
 
     // Game title is located at the beginning of the header (offset 0x0 relative to valid_header_offset) for 21 bytes.
     // It is null-terminated, so we trim null bytes and leading/trailing whitespace.
@@ -261,7 +273,8 @@ pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<SnesAnalysis,
 
     Ok(SnesAnalysis {
         source_name: source_name.to_string(),
-        region: region_name,
+        region,
+        region_string: region_name,
         region_mismatch,
         region_code,
         game_title,
@@ -337,7 +350,8 @@ mod tests {
         assert_eq!(analysis.game_title, "TEST GAME TITLE");
         assert_eq!(analysis.mapping_type, "LoROM (Map Mode Unverified)");
         assert_eq!(analysis.region_code, 0x00);
-        assert_eq!(analysis.region, "Japan (NTSC)");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan (NTSC)");
         Ok(())
     }
 
@@ -350,7 +364,8 @@ mod tests {
         assert_eq!(analysis.game_title, "TEST GAME TITLE");
         assert_eq!(analysis.mapping_type, "HiROM (Map Mode Unverified)");
         assert_eq!(analysis.region_code, 0x01);
-        assert_eq!(analysis.region, "USA / Canada (NTSC)");
+        assert_eq!(analysis.region, Region::USA);
+        assert_eq!(analysis.region_string, "USA / Canada (NTSC)");
         Ok(())
     }
 
@@ -364,7 +379,8 @@ mod tests {
         assert_eq!(analysis.game_title, "TEST GAME TITLE");
         assert_eq!(analysis.mapping_type, "LoROM (Map Mode Unverified)"); // Should detect copier header but still identify LoROM
         assert_eq!(analysis.region_code, 0x02);
-        assert_eq!(analysis.region, "Europe / Oceania / Asia (PAL)");
+        assert_eq!(analysis.region, Region::EUROPE | Region::ASIA);
+        assert_eq!(analysis.region_string, "Europe / Oceania / Asia (PAL)");
         Ok(())
     }
 
@@ -385,7 +401,8 @@ mod tests {
         assert_eq!(analysis.game_title, "TEST GAME TITLE");
         assert_eq!(analysis.mapping_type, "HiROM (Map Mode Unverified)");
         assert_eq!(analysis.region_code, 0x0F);
-        assert_eq!(analysis.region, "Canada (NTSC)");
+        assert_eq!(analysis.region, Region::USA);
+        assert_eq!(analysis.region_string, "Canada (NTSC)");
         Ok(())
     }
 
@@ -398,7 +415,8 @@ mod tests {
         assert_eq!(analysis.game_title, "TEST GAME TITLE");
         assert_eq!(analysis.mapping_type, "LoROM (Map Mode Unverified)");
         assert_eq!(analysis.region_code, 0xFF);
-        assert_eq!(analysis.region, "Unknown Region (0xFF)");
+        assert_eq!(analysis.region, Region::UNKNOWN);
+        assert_eq!(analysis.region_string, "Unknown Region (0xFF)");
         Ok(())
     }
 
@@ -427,7 +445,8 @@ mod tests {
         assert_eq!(analysis.game_title, "INVALID CHECKSUM");
         assert_eq!(analysis.mapping_type, "LoROM (Unverified)"); // Expecting fallback
         assert_eq!(analysis.region_code, 0x01);
-        assert_eq!(analysis.region, "USA / Canada (NTSC)");
+        assert_eq!(analysis.region, Region::USA);
+        assert_eq!(analysis.region_string, "USA / Canada (NTSC)");
         Ok(())
     }
 

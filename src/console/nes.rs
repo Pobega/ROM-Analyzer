@@ -12,7 +12,7 @@ use std::error::Error;
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
-use crate::region::check_region_mismatch;
+use crate::region::{Region, check_region_mismatch};
 
 const INES_REGION_BYTE: usize = 9;
 const INES_REGION_MASK: u8 = 0x01;
@@ -28,8 +28,10 @@ const NES2_FORMAT_EXPECTED_VALUE: u8 = 0x08;
 pub struct NesAnalysis {
     /// The name of the source file.
     pub source_name: String,
+    /// The identified region(s) as a region::Region bitmask.
+    pub region: Region,
     /// The identified region name (e.g., "NTSC (USA/Japan)").
-    pub region: String,
+    pub region_string: String,
     /// If the region in the ROM header doesn't match the region in the filename.
     pub region_mismatch: bool,
     /// The raw byte value used for region determination (from iNES flag 9 or NES2 flag 12).
@@ -71,25 +73,25 @@ impl NesAnalysis {
 ///
 /// A `&'static str` representing the region (e.g., "NTSC (USA/Japan)", "PAL (Europe/Oceania)"),
 /// or "Unknown" if the region code is not recognized.
-pub fn get_nes_region_name(region_byte: u8, nes2_format: bool) -> &'static str {
+pub fn get_nes_region(region_byte: u8, nes2_format: bool) -> (&'static str, Region) {
     if nes2_format {
         // NES 2.0 headers store region data in the CPU/PPU timing bit
         // in byte 12.
         match region_byte & NES2_REGION_MASK {
-            0 => "NTSC (USA/Japan)",
-            1 => "PAL (Europe/Oceania)",
-            2 => "Multi-region",
-            3 => "Dendy (Russia)",
-            _ => "Unknown",
+            0 => ("NTSC (USA/Japan)", Region::USA | Region::JAPAN),
+            1 => ("PAL (Europe/Oceania)", Region::EUROPE),
+            2 => ("Multi-region", Region::USA | Region::JAPAN | Region::EUROPE),
+            3 => ("Dendy (Russia)", Region::RUSSIA),
+            _ => ("Unknown", Region::UNKNOWN),
         }
     } else {
         // iNES headers store region data in byte 9.
         // It is only the lowest-order bit for NTSC vs PAL.
         // NTSC covers USA and Japan.
         match region_byte & INES_REGION_MASK {
-            0 => "NTSC (USA/Japan)",
-            1 => "PAL (Europe/Oceania)",
-            _ => "Unknown",
+            0 => ("NTSC (USA/Japan)", Region::USA | Region::JAPAN),
+            1 => ("PAL (Europe/Oceania)", Region::EUROPE),
+            _ => ("Unknown", Region::UNKNOWN),
         }
     }
 }
@@ -135,12 +137,13 @@ pub fn analyze_nes_data(data: &[u8], source_name: &str) -> Result<NesAnalysis, B
         region_byte_val = data[NES2_REGION_BYTE];
     }
 
-    let region_name = get_nes_region_name(region_byte_val, is_nes2_format);
+    let (region_name, region) = get_nes_region(region_byte_val, is_nes2_format);
     let region_mismatch = check_region_mismatch(source_name, &region_name);
 
     Ok(NesAnalysis {
         source_name: source_name.to_string(),
-        region: region_name.to_string(),
+        region,
+        region_string: region_name.to_string(),
         region_mismatch,
         region_byte_value: region_byte_val,
         is_nes2_format,
@@ -168,7 +171,7 @@ mod tests {
         match header_type {
             NesHeaderType::Ines => {
                 // iNES format: region is in byte 9. Only the LSB (INES_REGION_MASK) matters.
-                // We set the byte and let get_nes_region_name handle the masking.
+                // We set the byte and let get_nes_region handle the masking.
                 data[INES_REGION_BYTE] = region_value;
                 // Ensure NES 2.0 flags are NOT set in byte 7.
                 data[NES2_FORMAT_BYTE] &= !NES2_FORMAT_MASK;
@@ -177,7 +180,7 @@ mod tests {
                 // NES 2.0 format: set NES 2.0 identification bits in byte 7.
                 data[NES2_FORMAT_BYTE] |= NES2_FORMAT_EXPECTED_VALUE;
                 // Region is in byte 12, masked by NES2_REGION_MASK.
-                // We set the byte and let get_nes_region_name handle the masking.
+                // We set the byte and let get_nes_region handle the masking.
                 data[NES2_REGION_BYTE] = region_value;
             }
         }
@@ -191,7 +194,8 @@ mod tests {
         let analysis = analyze_nes_data(&data, "test_rom_ntsc.nes")?;
 
         assert_eq!(analysis.source_name, "test_rom_ntsc.nes");
-        assert_eq!(analysis.region, "NTSC (USA/Japan)");
+        assert_eq!(analysis.region, Region::USA | Region::JAPAN);
+        assert_eq!(analysis.region_string, "NTSC (USA/Japan)");
         assert!(!analysis.is_nes2_format);
         assert_eq!(analysis.region_byte_value, 0x00);
         Ok(())
@@ -204,7 +208,8 @@ mod tests {
         let analysis = analyze_nes_data(&data, "test_rom_pal.nes")?;
 
         assert_eq!(analysis.source_name, "test_rom_pal.nes");
-        assert_eq!(analysis.region, "PAL (Europe/Oceania)");
+        assert_eq!(analysis.region, Region::EUROPE);
+        assert_eq!(analysis.region_string, "PAL (Europe/Oceania)");
         assert!(!analysis.is_nes2_format);
         assert_eq!(analysis.region_byte_value, 0x01);
         Ok(())
@@ -217,7 +222,8 @@ mod tests {
         let analysis = analyze_nes_data(&data, "test_rom_nes2_ntsc.nes")?;
 
         assert_eq!(analysis.source_name, "test_rom_nes2_ntsc.nes");
-        assert_eq!(analysis.region, "NTSC (USA/Japan)");
+        assert_eq!(analysis.region, Region::USA | Region::JAPAN);
+        assert_eq!(analysis.region_string, "NTSC (USA/Japan)");
         assert!(analysis.is_nes2_format);
         assert_eq!(analysis.region_byte_value, 0x00);
         Ok(())
@@ -230,7 +236,8 @@ mod tests {
         let analysis = analyze_nes_data(&data, "test_rom_nes2_pal.nes")?;
 
         assert_eq!(analysis.source_name, "test_rom_nes2_pal.nes");
-        assert_eq!(analysis.region, "PAL (Europe/Oceania)");
+        assert_eq!(analysis.region, Region::EUROPE);
+        assert_eq!(analysis.region_string, "PAL (Europe/Oceania)");
         assert!(analysis.is_nes2_format);
         assert_eq!(analysis.region_byte_value, 0x01);
         Ok(())
@@ -243,7 +250,11 @@ mod tests {
         let analysis = analyze_nes_data(&data, "test_rom_nes2_world.nes")?;
 
         assert_eq!(analysis.source_name, "test_rom_nes2_world.nes");
-        assert_eq!(analysis.region, "Multi-region");
+        assert_eq!(
+            analysis.region,
+            Region::USA | Region::JAPAN | Region::EUROPE
+        );
+        assert_eq!(analysis.region_string, "Multi-region");
         assert!(analysis.is_nes2_format);
         assert_eq!(analysis.region_byte_value, 0x02);
         Ok(())
@@ -256,7 +267,8 @@ mod tests {
         let analysis = analyze_nes_data(&data, "test_rom_nes2_dendy.nes")?;
 
         assert_eq!(analysis.source_name, "test_rom_nes2_dendy.nes");
-        assert_eq!(analysis.region, "Dendy (Russia)");
+        assert_eq!(analysis.region, Region::RUSSIA);
+        assert_eq!(analysis.region_string, "Dendy (Russia)");
         assert!(analysis.is_nes2_format);
         assert_eq!(analysis.region_byte_value, 0x03);
         Ok(())

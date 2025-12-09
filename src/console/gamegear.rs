@@ -107,13 +107,15 @@ pub fn analyze_gamegear_data(
     });
 
     let mut region = Region::UNKNOWN;
-    let mut region_name = "Unknown";
+    let mut region_name = "Unknown".to_string();
     let mut region_found = false;
 
     if let Some(header_start) = header_start_opt {
         debug!("Found signature at 0x{:x}", header_start);
         if let Some(&region_byte) = data.get(header_start + REGION_CODE_OFFSET) {
-            (region_name, region) = get_gamegear_region_name(region_byte);
+            let (name, region_val) = get_gamegear_region_name(region_byte);
+            region_name = name.to_string();
+            region = region_val;
             if region_name != "Unknown" {
                 region_found = true;
             }
@@ -127,6 +129,7 @@ pub fn analyze_gamegear_data(
 
     if !region_found {
         region = infer_region_from_filename(source_name);
+        region_name = region.to_string();
     }
 
     let region_mismatch = check_region_mismatch(source_name, &region_name);
@@ -169,7 +172,8 @@ mod tests {
 
         let analysis = analyze_gamegear_data(&data, "my_game_usa.gg")?;
         assert_eq!(analysis.source_name, "my_game_usa.gg");
-        assert_eq!(analysis.region, "USA");
+        assert_eq!(analysis.region, Region::USA);
+        assert_eq!(analysis.region_string, "USA");
         assert!(!analysis.region_found); // Region should be inferred, not found in header
         Ok(())
     }
@@ -180,7 +184,8 @@ mod tests {
         let data = create_rom_data_with_header(0x7ff0, 0x50);
         let analysis = analyze_gamegear_data(&data, "test_rom.gg")?;
         assert_eq!(analysis.source_name, "test_rom.gg");
-        assert_eq!(analysis.region, "GameGear Japan");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "GameGear Japan");
         assert!(analysis.region_found);
         Ok(())
     }
@@ -191,7 +196,8 @@ mod tests {
         let data = create_rom_data_with_header(0x3ff0, 0x60);
         let analysis = analyze_gamegear_data(&data, "test_rom.gg")?;
         assert_eq!(analysis.source_name, "test_rom.gg");
-        assert_eq!(analysis.region, "GameGear Export");
+        assert_eq!(analysis.region, Region::USA | Region::EUROPE);
+        assert_eq!(analysis.region_string, "GameGear Export");
         assert!(analysis.region_found);
         Ok(())
     }
@@ -202,7 +208,8 @@ mod tests {
         let data = create_rom_data_with_header(0x1ff0, 0x70);
         let analysis = analyze_gamegear_data(&data, "test_rom.gg")?;
         assert_eq!(analysis.source_name, "test_rom.gg");
-        assert_eq!(analysis.region, "GameGear International");
+        assert_eq!(analysis.region, Region::USA | Region::EUROPE);
+        assert_eq!(analysis.region_string, "GameGear International");
         assert!(analysis.region_found);
         Ok(())
     }
@@ -212,7 +219,8 @@ mod tests {
         let data = vec![0; 0x8000]; // No header
         let analysis = analyze_gamegear_data(&data, "my_game_usa.gg")?;
         assert_eq!(analysis.source_name, "my_game_usa.gg");
-        assert_eq!(analysis.region, "USA");
+        assert_eq!(analysis.region, Region::USA);
+        assert_eq!(analysis.region_string, "USA");
         assert!(!analysis.region_found);
         Ok(())
     }
@@ -224,20 +232,33 @@ mod tests {
         let data = create_rom_data_with_header(0x7ff0, 0xF0);
         let analysis = analyze_gamegear_data(&data, "my_game_japan.gg")?;
         assert_eq!(analysis.source_name, "my_game_japan.gg");
-        assert_eq!(analysis.region, "Japan");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan");
         assert!(!analysis.region_found); // Still false because the header didn't provide a known region
         Ok(())
     }
 
     #[test]
     fn test_analyze_gamegear_data_get_region_name() {
-        assert_eq!(get_gamegear_region_name(0x30), "SMS Japan");
-        assert_eq!(get_gamegear_region_name(0x40), "SMS Export");
-        assert_eq!(get_gamegear_region_name(0x50), "GameGear Japan");
-        assert_eq!(get_gamegear_region_name(0x60), "GameGear Export");
-        assert_eq!(get_gamegear_region_name(0x70), "GameGear International");
-        assert_eq!(get_gamegear_region_name(0x00), "Unknown");
-        assert_eq!(get_gamegear_region_name(0xF0), "Unknown");
+        assert_eq!(get_gamegear_region_name(0x30), ("SMS Japan", Region::JAPAN));
+        assert_eq!(
+            get_gamegear_region_name(0x40),
+            ("SMS Export", Region::USA | Region::EUROPE)
+        );
+        assert_eq!(
+            get_gamegear_region_name(0x50),
+            ("GameGear Japan", Region::JAPAN)
+        );
+        assert_eq!(
+            get_gamegear_region_name(0x60),
+            ("GameGear Export", Region::USA | Region::EUROPE)
+        );
+        assert_eq!(
+            get_gamegear_region_name(0x70),
+            ("GameGear International", Region::USA | Region::EUROPE)
+        );
+        assert_eq!(get_gamegear_region_name(0x00), ("Unknown", Region::UNKNOWN));
+        assert_eq!(get_gamegear_region_name(0xF0), ("Unknown", Region::UNKNOWN));
     }
 
     #[test]
@@ -245,7 +266,8 @@ mod tests {
         let data = vec![0; 0x100]; // Dummy data
         let analysis = analyze_gamegear_data(&data, "test_rom_usa.gg")?;
         assert_eq!(analysis.source_name, "test_rom_usa.gg");
-        assert_eq!(analysis.region, "USA");
+        assert_eq!(analysis.region, Region::USA);
+        assert_eq!(analysis.region_string, "USA");
         Ok(())
     }
 
@@ -254,7 +276,8 @@ mod tests {
         let data = vec![0; 0x100]; // Dummy data
         let analysis = analyze_gamegear_data(&data, "test_rom_jp.gg")?;
         assert_eq!(analysis.source_name, "test_rom_jp.gg");
-        assert_eq!(analysis.region, "Japan");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan");
         Ok(())
     }
 
@@ -263,7 +286,8 @@ mod tests {
         let data = vec![0; 0x100]; // Dummy data
         let analysis = analyze_gamegear_data(&data, "test_rom_eur.gg")?;
         assert_eq!(analysis.source_name, "test_rom_eur.gg");
-        assert_eq!(analysis.region, "Europe");
+        assert_eq!(analysis.region, Region::EUROPE);
+        assert_eq!(analysis.region_string, "Europe");
         Ok(())
     }
 
@@ -272,7 +296,8 @@ mod tests {
         let data = vec![0; 0x100]; // Dummy data
         let analysis = analyze_gamegear_data(&data, "test_rom.gg")?;
         assert_eq!(analysis.source_name, "test_rom.gg");
-        assert_eq!(analysis.region, "Unknown");
+        assert_eq!(analysis.region, Region::UNKNOWN);
+        assert_eq!(analysis.region_string, "Unknown");
         Ok(())
     }
 }

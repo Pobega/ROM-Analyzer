@@ -12,7 +12,7 @@ use log::error;
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
-use crate::region::check_region_mismatch;
+use crate::region::{Region, check_region_mismatch};
 
 const SYSTEM_TYPE_START: usize = 0x100;
 const SYSTEM_TYPE_END: usize = 0x110;
@@ -27,8 +27,10 @@ const REGION_CODE_BYTE: usize = 0x1F0;
 pub struct GenesisAnalysis {
     /// The name of the source file.
     pub source_name: String,
+    /// The identified region(s) as a region::Region bitmask.
+    pub region: Region,
     /// The identified region name (e.g., "USA (NTSC-U)").
-    pub region: String,
+    pub region_string: String,
     /// If the region in the ROM header doesn't match the region in the filename.
     pub region_mismatch: bool,
     /// The raw region code byte.
@@ -127,28 +129,28 @@ pub fn analyze_genesis_data(
     // Region Code byte is at offset 0x1F0 (which is 0xF0 relative to header_start)
     let region_code_byte = data[REGION_CODE_BYTE];
 
-    let region_name = match region_code_byte {
-        b'J' => "Japan (NTSC-J)",
-        b'U' => "USA (NTSC-U)",
-        b'E' => "Europe (PAL)",
-        b'A' => "Asia (NTSC)",
-        b'B' => "Brazil (PAL-M)", // Brazil often uses NTSC-M, but some releases might align with PAL-M.
-        b'C' => "China (NTSC)",
-        b'F' => "France (PAL)",
-        b'K' => "Korea (NTSC)",
-        b'L' => "UK (PAL)",
-        b'S' => "Scandinavia (PAL)",
-        b'T' => "Taiwan (NTSC)",
-        0x34 => "USA/Europe (NTSC/PAL)", // Specific code for some releases.
-        _ => "Unknown Code",
-    }
-    .to_string();
+    let (region_name, region) = match region_code_byte {
+        b'J' => ("Japan (NTSC-J)", Region::JAPAN),
+        b'U' => ("USA (NTSC-U)", Region::USA),
+        b'E' => ("Europe (PAL)", Region::EUROPE),
+        b'A' => ("Asia (NTSC)", Region::ASIA),
+        b'B' => ("Brazil (PAL-M)", Region::EUROPE),
+        b'C' => ("China (NTSC)", Region::CHINA),
+        b'F' => ("France (PAL)", Region::EUROPE),
+        b'K' => ("Korea (NTSC)", Region::KOREA),
+        b'L' => ("UK (PAL)", Region::EUROPE),
+        b'S' => ("Scandinavia (PAL)", Region::EUROPE),
+        b'T' => ("Taiwan (NTSC)", Region::ASIA),
+        0x34 => ("USA/Europe (NTSC/PAL)", Region::USA | Region::EUROPE),
+        _ => ("Unknown Code", Region::UNKNOWN),
+    };
 
     let region_mismatch = check_region_mismatch(source_name, &region_name);
 
     Ok(GenesisAnalysis {
         source_name: source_name.to_string(),
-        region: region_name,
+        region,
+        region_string: region_name.to_string(),
         region_mismatch,
         region_code_byte,
         console_name,
@@ -201,7 +203,8 @@ mod tests {
         assert_eq!(analysis.game_title_domestic, "DOMESTIC US");
         assert_eq!(analysis.game_title_international, "INTERNATIONAL US");
         assert_eq!(analysis.region_code_byte, b'U');
-        assert_eq!(analysis.region, "USA (NTSC-U)");
+        assert_eq!(analysis.region, Region::USA);
+        assert_eq!(analysis.region_string, "USA (NTSC-U)");
         Ok(())
     }
 
@@ -216,7 +219,8 @@ mod tests {
         assert_eq!(analysis.game_title_domestic, "DOMESTIC JP");
         assert_eq!(analysis.game_title_international, "INTERNATIONAL JP");
         assert_eq!(analysis.region_code_byte, b'J');
-        assert_eq!(analysis.region, "Japan (NTSC-J)");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan (NTSC-J)");
         Ok(())
     }
 
@@ -235,7 +239,8 @@ mod tests {
         assert_eq!(analysis.game_title_domestic, "DOMESTIC EUR");
         assert_eq!(analysis.game_title_international, "INTERNATIONAL EUR");
         assert_eq!(analysis.region_code_byte, b'E');
-        assert_eq!(analysis.region, "Europe (PAL)");
+        assert_eq!(analysis.region, Region::EUROPE);
+        assert_eq!(analysis.region_string, "Europe (PAL)");
         Ok(())
     }
 
@@ -247,7 +252,8 @@ mod tests {
         assert_eq!(analysis.source_name, "test_rom_genesis.gen");
         assert_eq!(analysis.console_name, "SEGA GENESIS");
         assert_eq!(analysis.region_code_byte, b'U');
-        assert_eq!(analysis.region, "USA (NTSC-U)");
+        assert_eq!(analysis.region, Region::USA);
+        assert_eq!(analysis.region_string, "USA (NTSC-U)");
         Ok(())
     }
 
@@ -262,7 +268,8 @@ mod tests {
         let analysis = analyze_genesis_data(&data, "test_rom_unknown.md")?;
 
         assert_eq!(analysis.source_name, "test_rom_unknown.md");
-        assert_eq!(analysis.region, "Unknown Code");
+        assert_eq!(analysis.region, Region::UNKNOWN);
+        assert_eq!(analysis.region_string, "Unknown Code");
         assert_eq!(analysis.region_code_byte, b'Z');
         Ok(())
     }

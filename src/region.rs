@@ -138,13 +138,6 @@ pub fn infer_region_from_filename(name: &str) -> Region {
 /// assert_eq!(normalize_header_region("PAL"), Region::EUROPE);
 /// assert_eq!(normalize_header_region("UNKNOWN"), Region::UNKNOWN);
 /// ```
-// TODO: Gameboy has a 'Non-Japan' region, we need that to not match Japan somehow.
-// Perhaps we either detect that specifically and flip the Japan bit back over, or
-// we use bounding regexes ('^Japan$') to match everything.
-// TODO: we should also probably move some of this code into the consoles themselves.
-// We could make them match as "SLUS" -> Region::USA, and add a 'header_region' to
-// explicitly expose the region name from the header. This would also resolve the above
-// TODO, since we can map 'Non-Japan' to Region::USA and Region::EUROPE.
 pub fn normalize_header_region(header_text: &str) -> Region {
     let header_text = header_text.to_uppercase();
     let mut region = Region::UNKNOWN;

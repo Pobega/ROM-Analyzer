@@ -102,7 +102,7 @@ pub fn analyze_gb_data(data: &[u8], source_name: &str) -> Result<GbAnalysis, Box
     let (region_name, region) = match destination_code {
         0x00 => ("Japan", Region::JAPAN),
         0x01 => ("Non-Japan (International)", Region::USA | Region::EUROPE),
-        _ => ("Unknown", Region::UNKNOWN),
+        _ => ("Unknown Code", Region::UNKNOWN),
     };
 
     let region_mismatch = check_region_mismatch(source_name, region_name);
@@ -157,7 +157,8 @@ mod tests {
         assert_eq!(analysis.system_type, "Game Boy (GB)");
         assert_eq!(analysis.game_title, "GAMETITLE");
         assert_eq!(analysis.destination_code, 0x00);
-        assert_eq!(analysis.region, "Japan");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan");
         Ok(())
     }
 
@@ -170,7 +171,8 @@ mod tests {
         assert_eq!(analysis.system_type, "Game Boy (GB)");
         assert_eq!(analysis.game_title, "GAMETITLE");
         assert_eq!(analysis.destination_code, 0x01);
-        assert_eq!(analysis.region, "Non-Japan (International)");
+        assert_eq!(analysis.region, Region::USA | Region::EUROPE);
+        assert_eq!(analysis.region_string, "Non-Japan (International)");
         Ok(())
     }
 
@@ -183,7 +185,8 @@ mod tests {
         assert_eq!(analysis.system_type, "Game Boy Color (GBC)");
         assert_eq!(analysis.game_title, "GBC TITLE");
         assert_eq!(analysis.destination_code, 0x00);
-        assert_eq!(analysis.region, "Japan");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan");
         Ok(())
     }
 
@@ -196,7 +199,8 @@ mod tests {
         assert_eq!(analysis.system_type, "Game Boy Color (GBC)");
         assert_eq!(analysis.game_title, "GBC TITLE");
         assert_eq!(analysis.destination_code, 0x01);
-        assert_eq!(analysis.region, "Non-Japan (International)");
+        assert_eq!(analysis.region, Region::USA | Region::EUROPE);
+        assert_eq!(analysis.region_string, "Non-Japan (International)");
         Ok(())
     }
 
@@ -211,7 +215,8 @@ mod tests {
         assert_eq!(analysis.system_type, "Game Boy (GB)");
         assert_eq!(analysis.game_title, "LOOOOOONG TITLE");
         assert_eq!(analysis.destination_code, 0x00);
-        assert_eq!(analysis.region, "Japan");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan");
         Ok(())
     }
 
@@ -224,7 +229,8 @@ mod tests {
         assert_eq!(analysis.system_type, "Game Boy Color (GBC)");
         assert_eq!(analysis.game_title, "LOONG TITLE");
         assert_eq!(analysis.destination_code, 0x00);
-        assert_eq!(analysis.region, "Japan");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan");
         Ok(())
     }
 
@@ -234,7 +240,8 @@ mod tests {
         let analysis = analyze_gb_data(&data, "test_rom_unknown.gb")?;
 
         assert_eq!(analysis.source_name, "test_rom_unknown.gb");
-        assert_eq!(analysis.region, "Unknown Code");
+        assert_eq!(analysis.region, Region::UNKNOWN);
+        assert_eq!(analysis.region_string, "Unknown Code");
         Ok(())
     }
 
