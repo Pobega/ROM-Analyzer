@@ -1,6 +1,6 @@
 [package]
 name = "rom-analyzer"
-version = "0.2.0"
+version = "1.0.0"
 edition = "2024"
 authors = ["Michael Pobega <pobega@gmail.com>"]
 description = "A CLI tool for analyzing console ROM file headers."
