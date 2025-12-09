@@ -11,7 +11,7 @@ use std::error::Error;
 use log::debug;
 use serde::Serialize;
 
-use crate::region::{check_region_mismatch, infer_region_from_filename};
+use crate::region::{Region, check_region_mismatch, infer_region_from_filename};
 
 const POSSIBLE_HEADER_STARTS: &[usize] = &[0x7ff0, 0x3ff0, 0x1ff0];
 const REGION_CODE_OFFSET: usize = 0xf;
@@ -22,8 +22,10 @@ const SEGA_HEADER_SIGNATURE: &[u8] = b"TMR SEGA";
 pub struct GameGearAnalysis {
     /// The name of the source file.
     pub source_name: String,
+    /// The identified region(s) as a region::Region bitmask.
+    pub region: Region,
     /// The identified region name (e.g., "GameGear Japan").
-    pub region: String,
+    pub region_string: String,
     /// If the region in the ROM header doesn't match the region in the filename.
     pub region_mismatch: bool,
     /// If the region is found in the header, or inferred from the filename.
@@ -61,15 +63,15 @@ impl GameGearAnalysis {
 ///
 /// A `&'static str` representing the region as written in the ROM header (e.g., "GameGear Japan",
 /// "GameGear Export"), or "Unknown" if the region code is not recognized.
-pub fn get_gamegear_region_name(region_byte: u8) -> &'static str {
+pub fn get_gamegear_region_name(region_byte: u8) -> (&'static str, Region) {
     let region_code_value: u8 = region_byte >> 4;
     match region_code_value {
-        0x3 => "SMS Japan",
-        0x4 => "SMS Export",
-        0x5 => "GameGear Japan",
-        0x6 => "GameGear Export",
-        0x7 => "GameGear International",
-        _ => "Unknown",
+        0x3 => ("SMS Japan", Region::JAPAN),
+        0x4 => ("SMS Export", Region::USA | Region::EUROPE),
+        0x5 => ("GameGear Japan", Region::JAPAN),
+        0x6 => ("GameGear Export", Region::USA | Region::EUROPE),
+        0x7 => ("GameGear International", Region::USA | Region::EUROPE),
+        _ => ("Unknown", Region::UNKNOWN),
     }
 }
 
@@ -104,14 +106,15 @@ pub fn analyze_gamegear_data(
             .map_or(false, |s| s == SEGA_HEADER_SIGNATURE)
     });
 
-    let (mut region, mut region_found) = ("Unknown".to_string(), false);
+    let mut region = Region::UNKNOWN;
+    let mut region_name = "Unknown";
+    let mut region_found = false;
 
     if let Some(header_start) = header_start_opt {
         debug!("Found signature at 0x{:x}", header_start);
         if let Some(&region_byte) = data.get(header_start + REGION_CODE_OFFSET) {
-            let region_name = get_gamegear_region_name(region_byte);
+            (region_name, region) = get_gamegear_region_name(region_byte);
             if region_name != "Unknown" {
-                region = region_name.to_string();
                 region_found = true;
             }
         } else {
@@ -123,14 +126,15 @@ pub fn analyze_gamegear_data(
     }
 
     if !region_found {
-        region = infer_region_from_filename(source_name).to_string();
+        region = infer_region_from_filename(source_name);
     }
 
-    let region_mismatch = check_region_mismatch(source_name, &region);
+    let region_mismatch = check_region_mismatch(source_name, &region_name);
 
     Ok(GameGearAnalysis {
         source_name: source_name.to_string(),
         region,
+        region_string: region_name.to_string(),
         region_mismatch,
         region_found,
     })

@@ -11,15 +11,18 @@ use std::error::Error;
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
-use crate::region::check_region_mismatch;
+use crate::region::{Region, check_region_mismatch};
 
 /// Struct to hold the analysis results for a GBA ROM.
 #[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct GbaAnalysis {
     /// The name of the source file.
+    // TODO: all of these Strings should maybe be &str references?
     pub source_name: String,
+    /// The identified region(s) as a region::Region bitmask.
+    pub region: Region,
     /// The identified region name (e.g., "Japan").
-    pub region: String,
+    pub region_string: String,
     /// If the region in the ROM header doesn't match the region in the filename.
     pub region_mismatch: bool,
     /// The game title extracted from the ROM header.
@@ -93,24 +96,24 @@ pub fn analyze_gba_data(data: &[u8], source_name: &str) -> Result<GbaAnalysis, B
 
     // Determine region name based on the byte value.
     // Common codes are numeric (0=JP, 1=US, 2=EU) or ASCII characters.
-    let region_name = match region_code_byte {
-        0x00 => "Japan",
-        0x01 => "USA",
-        0x02 => "Europe",
+    let (region_name, region) = match region_code_byte {
+        0x00 => ("Japan", Region::JAPAN),
+        0x01 => ("USA", Region::USA),
+        0x02 => ("Europe", Region::EUROPE),
         // ASCII representations are also common
-        b'J' => "Japan",
-        b'U' => "USA",
-        b'E' => "Europe",
-        b'P' => "Europe", // PAL
-        _ => "Unknown",
-    }
-    .to_string();
+        b'J' => ("Japan", Region::JAPAN),
+        b'U' => ("USA", Region::USA),
+        b'E' => ("Europe", Region::EUROPE),
+        b'P' => ("Europe", Region::EUROPE), // PAL
+        _ => ("Unknown", Region::UNKNOWN),
+    };
 
     let region_mismatch = check_region_mismatch(source_name, &region_name);
 
     Ok(GbaAnalysis {
         source_name: source_name.to_string(),
-        region: region_name,
+        region,
+        region_string: region_name.to_string(),
         region_mismatch,
         game_title,
         game_code,
@@ -162,7 +165,8 @@ mod tests {
         assert_eq!(analysis.game_title, "GBA JP GAME");
         assert_eq!(analysis.game_code, "ABCD");
         assert_eq!(analysis.maker_code, "XX");
-        assert_eq!(analysis.region, "Japan");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan");
         Ok(())
     }
 
@@ -175,7 +179,8 @@ mod tests {
         assert_eq!(analysis.game_title, "GBA US GAME");
         assert_eq!(analysis.game_code, "EFGH");
         assert_eq!(analysis.maker_code, "YY");
-        assert_eq!(analysis.region, "USA");
+        assert_eq!(analysis.region, Region::USA);
+        assert_eq!(analysis.region_string, "USA");
         Ok(())
     }
 
@@ -188,7 +193,8 @@ mod tests {
         assert_eq!(analysis.game_title, "GBA EUR GAME");
         assert_eq!(analysis.game_code, "IJKL");
         assert_eq!(analysis.maker_code, "ZZ");
-        assert_eq!(analysis.region, "Europe");
+        assert_eq!(analysis.region, Region::EUROPE);
+        assert_eq!(analysis.region_string, "Europe");
         Ok(())
     }
 
@@ -201,7 +207,8 @@ mod tests {
         assert_eq!(analysis.game_title, "GBA JP CHAR");
         assert_eq!(analysis.game_code, "MNOP");
         assert_eq!(analysis.maker_code, "AA");
-        assert_eq!(analysis.region, "Japan");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan");
         Ok(())
     }
 
@@ -211,7 +218,8 @@ mod tests {
         let analysis = analyze_gba_data(&data, "test_rom_unknown.gba")?;
 
         assert_eq!(analysis.source_name, "test_rom_unknown.gba");
-        assert_eq!(analysis.region, "Unknown");
+        assert_eq!(analysis.region, Region::UNKNOWN);
+        assert_eq!(analysis.region_string, "Unknown");
         Ok(())
     }
 

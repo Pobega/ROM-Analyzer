@@ -7,11 +7,12 @@
 use std::fmt;
 
 use bitflags::bitflags;
+use serde::Serialize;
 
 bitflags! {
     /// A bitflag struct representing geographical regions.
     /// Allows a ROM to belong to multiple regions (e.g., NES NTSC = USA + JAPAN).
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
     pub struct Region: u8 {
 
         const UNKNOWN = 0;
