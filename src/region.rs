@@ -2,7 +2,13 @@
 //! from ROM filenames and header information.
 //!
 //! This module helps in identifying the target region (e.g., Japan, USA, Europe)
-//! of a ROM, which is crucial for accurate analysis and categorization.
+//! of a ROM, which is crucial for accurate analysis and categorization. It includes
+//! functions for inferring regions from filenames and comparing inferred regions
+//! with regions reported by ROM headers.
+//!
+//! The `Region` bitflag struct is used to represent geographical regions and allows
+//! a ROM to belong to multiple regions (e.g., NES NTSC = USA + JAPAN). The `WORLD`
+//! constant is a special case that represents ROMs compatible with multiple regions.
 
 use std::fmt;
 
@@ -12,6 +18,9 @@ use serde::Serialize;
 bitflags! {
     /// A bitflag struct representing geographical regions.
     /// Allows a ROM to belong to multiple regions (e.g., NES NTSC = USA + JAPAN).
+    ///
+    /// The `WORLD` constant is a special case that represents ROMs compatible with
+    /// multiple regions (e.g. USA and Europe for ROMs with an 'Overseas' region).
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
     pub struct Region: u8 {
 
@@ -111,26 +120,20 @@ pub fn infer_region_from_filename(name: &str) -> Region {
     region
 }
 
-/// Compare the inferred region (via filename) to the region in the ROM's header.
+/// Compare the inferred region (via filename) to the region reported by the ROM's header.
 ///
-/// Returns `true` (mismatch) if:
+/// Returns `true` if there is a mismatch, otherwise returns `false`.
+/// A mismatch occurs if:
 /// 1. Both filename and header have known regions.
 /// 2. They share NO common regions (intersection is empty).
 ///
-/// If either is UNKNOWN, this returns `true` (mismatch).
-// TODO: consider if UNKNOWN should be a mismatch? Perhaps it should be surfaced as its own
-// separate error.
+/// If either region is unknown, returns `false` (no mismatch).
 pub fn check_region_mismatch(source_name: &str, header_region: Region) -> bool {
     let inferred_region = infer_region_from_filename(source_name);
 
-    // If neither region can be found, avoid a mismatch by returning early.
-    if inferred_region.is_empty() && header_region.is_empty() {
-        return false;
-    }
-
-    // If either region is unknown, return a mismatch.
+    // If either region is unknown, do not return a mismatch.
     if inferred_region.is_empty() || header_region.is_empty() {
-        return true;
+        return false;
     }
 
     !inferred_region.intersects(header_region)
@@ -253,9 +256,18 @@ mod tests {
     #[test]
     fn test_check_region_mismatch_filename_has_region_header_unknown() {
         // Filename indicates a region, but header is unknown/unnormalized
-        assert_eq!(check_region_mismatch("game (J).zip", Region::UNKNOWN), true);
-        assert_eq!(check_region_mismatch("game (U).zip", Region::UNKNOWN), true);
-        assert_eq!(check_region_mismatch("game (E).zip", Region::UNKNOWN), true);
+        assert_eq!(
+            check_region_mismatch("game (J).zip", Region::UNKNOWN),
+            false
+        );
+        assert_eq!(
+            check_region_mismatch("game (U).zip", Region::UNKNOWN),
+            false
+        );
+        assert_eq!(
+            check_region_mismatch("game (E).zip", Region::UNKNOWN),
+            false
+        );
     }
 
     #[test]
