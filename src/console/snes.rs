@@ -269,7 +269,7 @@ pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<SnesAnalysis,
         .trim()
         .to_string();
 
-    let region_mismatch = check_region_mismatch(source_name, &region_name);
+    let region_mismatch = check_region_mismatch(source_name, region);
 
     Ok(SnesAnalysis {
         source_name: source_name.to_string(),

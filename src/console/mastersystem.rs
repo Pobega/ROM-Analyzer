@@ -79,7 +79,7 @@ pub fn analyze_mastersystem_data(
         _ => ("Unknown Code", Region::UNKNOWN),
     };
 
-    let region_mismatch = check_region_mismatch(source_name, &region_name);
+    let region_mismatch = check_region_mismatch(source_name, region);
 
     Ok(MasterSystemAnalysis {
         source_name: source_name.to_string(),

@@ -145,7 +145,7 @@ pub fn analyze_genesis_data(
         _ => ("Unknown Code", Region::UNKNOWN),
     };
 
-    let region_mismatch = check_region_mismatch(source_name, &region_name);
+    let region_mismatch = check_region_mismatch(source_name, region);
 
     Ok(GenesisAnalysis {
         source_name: source_name.to_string(),

@@ -132,7 +132,7 @@ pub fn analyze_gamegear_data(
         region_name = region.to_string();
     }
 
-    let region_mismatch = check_region_mismatch(source_name, &region_name);
+    let region_mismatch = check_region_mismatch(source_name, region);
 
     Ok(GameGearAnalysis {
         source_name: source_name.to_string(),

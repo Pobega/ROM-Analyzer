@@ -105,7 +105,7 @@ pub fn analyze_gb_data(data: &[u8], source_name: &str) -> Result<GbAnalysis, Box
         _ => ("Unknown Code", Region::UNKNOWN),
     };
 
-    let region_mismatch = check_region_mismatch(source_name, region_name);
+    let region_mismatch = check_region_mismatch(source_name, region);
 
     Ok(GbAnalysis {
         source_name: source_name.to_string(),

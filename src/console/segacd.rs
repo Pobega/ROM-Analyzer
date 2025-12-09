@@ -108,7 +108,7 @@ pub fn analyze_segacd_data(
         );
     }
 
-    let region_mismatch = check_region_mismatch(source_name, &region_name);
+    let region_mismatch = check_region_mismatch(source_name, region);
 
     Ok(SegaCdAnalysis {
         source_name: source_name.to_string(),
