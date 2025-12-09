@@ -69,8 +69,7 @@ fn main() {
                 } else {
                     info!("{}", analysis.print());
                     if analysis.region_mismatch() {
-                        let inferred_region =
-                            infer_region_from_filename(analysis.source_name()).unwrap_or("Unknown");
+                        let inferred_region = infer_region_from_filename(analysis.source_name());
                         warn!(
                             "POSSIBLE REGION MISMATCH\n\
                              Source file:          {}\n\

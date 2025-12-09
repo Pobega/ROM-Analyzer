@@ -11,7 +11,7 @@ use std::error::Error;
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
-use crate::region::check_region_mismatch;
+use crate::region::{Region, check_region_mismatch};
 
 const GB_TITLE_START: usize = 0x134;
 const GB_TITLE_END: usize = 0x143;
@@ -25,8 +25,10 @@ const GBC_TITLE_END: usize = 0x13F;
 pub struct GbAnalysis {
     /// The name of the source file.
     pub source_name: String,
+    /// The identified region(s) as a region::Region bitmask.
+    pub region: Region,
     /// The identified region name (e.g., "Japan").
-    pub region: String,
+    pub region_string: String,
     /// If the region in the ROM header doesn't match the region in the filename.
     pub region_mismatch: bool,
     /// The identified system type (e.g., "Game Boy (GB)" or "Game Boy Color (GBC)").
@@ -48,6 +50,48 @@ impl GbAnalysis {
              Region:       {}",
             self.source_name, self.system_type, self.game_title, self.destination_code, self.region
         )
+    }
+}
+
+/// Determines the Game Boy game region based on a given region byte.
+///
+/// The region byte typically comes from the ROM header. This function extracts the relevant bits
+/// from the byte and maps it to a human-readable region string and a Region bitmask.
+///
+/// # Arguments
+///
+/// * `region_byte` - The byte containing the region code, usually found in the ROM header.
+///
+/// # Returns
+///
+/// A tuple containing:
+/// - A `&'static str` representing the region as written in the ROM header (e.g., "Japan",
+///   "Non-Japan (International)") or "Unknown" if the region code is not recognized.
+/// - A `Region` bitmask representing the region(s) associated with the code.
+///
+/// # Examples
+///
+/// ```rust
+/// use rom_analyzer::console::gb::map_region;
+/// use rom_analyzer::region::Region;
+///
+/// let (region_str, region_mask) = map_region(0x00);
+/// assert_eq!(region_str, "Japan");
+/// assert_eq!(region_mask, Region::JAPAN);
+///
+/// let (region_str, region_mask) = map_region(0x01);
+/// assert_eq!(region_str, "Non-Japan (International)");
+/// assert_eq!(region_mask, Region::USA | Region::EUROPE);
+///
+/// let (region_str, region_mask) = map_region(0x02);
+/// assert_eq!(region_str, "Unknown");
+/// assert_eq!(region_mask, Region::UNKNOWN);
+/// ```
+pub fn map_region(region_byte: u8) -> (&'static str, Region) {
+    match region_byte {
+        0x00 => ("Japan", Region::JAPAN),
+        0x01 => ("Non-Japan (International)", Region::USA | Region::EUROPE),
+        _ => ("Unknown", Region::UNKNOWN),
     }
 }
 
@@ -97,17 +141,14 @@ pub fn analyze_gb_data(data: &[u8], source_name: &str) -> Result<GbAnalysis, Box
         .to_string();
 
     let destination_code = data[GB_DESTINATION];
-    let region_name = match destination_code {
-        0x00 => "Japan",
-        0x01 => "Non-Japan (International)",
-        _ => "Unknown Code",
-    };
+    let (region_name, region) = map_region(destination_code);
 
-    let region_mismatch = check_region_mismatch(source_name, region_name);
+    let region_mismatch = check_region_mismatch(source_name, region);
 
     Ok(GbAnalysis {
         source_name: source_name.to_string(),
-        region: region_name.to_string(),
+        region,
+        region_string: region_name.to_string(),
         region_mismatch,
         system_type: system_type.to_string(),
         game_title,
@@ -154,7 +195,8 @@ mod tests {
         assert_eq!(analysis.system_type, "Game Boy (GB)");
         assert_eq!(analysis.game_title, "GAMETITLE");
         assert_eq!(analysis.destination_code, 0x00);
-        assert_eq!(analysis.region, "Japan");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan");
         Ok(())
     }
 
@@ -167,7 +209,8 @@ mod tests {
         assert_eq!(analysis.system_type, "Game Boy (GB)");
         assert_eq!(analysis.game_title, "GAMETITLE");
         assert_eq!(analysis.destination_code, 0x01);
-        assert_eq!(analysis.region, "Non-Japan (International)");
+        assert_eq!(analysis.region, Region::USA | Region::EUROPE);
+        assert_eq!(analysis.region_string, "Non-Japan (International)");
         Ok(())
     }
 
@@ -180,7 +223,8 @@ mod tests {
         assert_eq!(analysis.system_type, "Game Boy Color (GBC)");
         assert_eq!(analysis.game_title, "GBC TITLE");
         assert_eq!(analysis.destination_code, 0x00);
-        assert_eq!(analysis.region, "Japan");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan");
         Ok(())
     }
 
@@ -193,7 +237,8 @@ mod tests {
         assert_eq!(analysis.system_type, "Game Boy Color (GBC)");
         assert_eq!(analysis.game_title, "GBC TITLE");
         assert_eq!(analysis.destination_code, 0x01);
-        assert_eq!(analysis.region, "Non-Japan (International)");
+        assert_eq!(analysis.region, Region::USA | Region::EUROPE);
+        assert_eq!(analysis.region_string, "Non-Japan (International)");
         Ok(())
     }
 
@@ -208,7 +253,8 @@ mod tests {
         assert_eq!(analysis.system_type, "Game Boy (GB)");
         assert_eq!(analysis.game_title, "LOOOOOONG TITLE");
         assert_eq!(analysis.destination_code, 0x00);
-        assert_eq!(analysis.region, "Japan");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan");
         Ok(())
     }
 
@@ -221,7 +267,8 @@ mod tests {
         assert_eq!(analysis.system_type, "Game Boy Color (GBC)");
         assert_eq!(analysis.game_title, "LOONG TITLE");
         assert_eq!(analysis.destination_code, 0x00);
-        assert_eq!(analysis.region, "Japan");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan");
         Ok(())
     }
 
@@ -231,7 +278,8 @@ mod tests {
         let analysis = analyze_gb_data(&data, "test_rom_unknown.gb")?;
 
         assert_eq!(analysis.source_name, "test_rom_unknown.gb");
-        assert_eq!(analysis.region, "Unknown Code");
+        assert_eq!(analysis.region, Region::UNKNOWN);
+        assert_eq!(analysis.region_string, "Unknown");
         Ok(())
     }
 

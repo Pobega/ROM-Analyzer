@@ -242,7 +242,7 @@ fn process_rom_data(data: Vec<u8>, rom_path: &str) -> Result<RomAnalysisResult, 
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust
 /// use rom_analyzer::analyze_rom_data;
 ///
 /// let result = analyze_rom_data("path/to/your/rom.nes");
@@ -330,7 +330,7 @@ macro_rules! impl_rom_analysis_accessor {
 impl RomAnalysisResult {
     impl_rom_analysis_method!(print, String);
     impl_rom_analysis_accessor!(source_name, source_name, &str);
-    impl_rom_analysis_accessor!(region, region, &str);
+    impl_rom_analysis_accessor!(region, region_string, &str);
     impl_rom_analysis_accessor!(region_mismatch, region_mismatch, bool);
 }
 

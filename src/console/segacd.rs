@@ -11,15 +11,17 @@ use log::error;
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
-use crate::region::check_region_mismatch;
+use crate::region::{Region, check_region_mismatch};
 
 /// Struct to hold the analysis results for a Sega CD ROM.
 #[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct SegaCdAnalysis {
     /// The name of the source file.
     pub source_name: String,
+    /// The identified region(s) as a region::Region bitmask.
+    pub region: Region,
     /// The identified region name (e.g., "Japan (NTSC-J)").
-    pub region: String,
+    pub region_string: String,
     /// If the region in the ROM header doesn't match the region in the filename.
     pub region_mismatch: bool,
     /// The raw region code byte.
@@ -39,6 +41,58 @@ impl SegaCdAnalysis {
              Region:       {}",
             self.source_name, self.signature, self.region_code, self.region
         )
+    }
+}
+
+/// Determines the Sega CD game region based on a given region byte.
+///
+/// The region byte typically comes from the ROM header. This function extracts the relevant bits
+/// from the byte and maps it to a human-readable region string and a Region bitmask.
+///
+/// # Arguments
+///
+/// * `region_byte` - The byte containing the region code, usually found in the ROM header.
+///
+/// # Returns
+///
+/// A tuple containing:
+/// - A `&'static str` representing the region as written in the ROM header (e.g., "Japan (NTSC-J)",
+///   "Europe (PAL)", etc) or "Unknown" if the region code is not recognized.
+/// - A `Region` bitmask representing the region(s) associated with the code.
+///
+/// # Examples
+///
+/// ```rust
+/// use rom_analyzer::console::segacd::map_region;
+/// use rom_analyzer::region::Region;
+///
+/// let (region_str, region_mask) = map_region(0x40);
+/// assert_eq!(region_str, "Japan (NTSC-J)");
+/// assert_eq!(region_mask, Region::JAPAN);
+///
+/// let (region_str, region_mask) = map_region(0x80);
+/// assert_eq!(region_str, "Europe (PAL)");
+/// assert_eq!(region_mask, Region::EUROPE);
+///
+/// let (region_str, region_mask) = map_region(0x00);
+/// assert_eq!(region_str, "Unrestricted/BIOS region");
+/// assert_eq!(region_mask, Region::USA | Region::EUROPE | Region::JAPAN);
+///
+/// let (region_str, region_mask) = map_region(0xDF);
+/// assert_eq!(region_str, "Unknown");
+/// assert_eq!(region_mask, Region::UNKNOWN);
+/// ```
+pub fn map_region(region_byte: u8) -> (&'static str, Region) {
+    match region_byte {
+        0x40 => ("Japan (NTSC-J)", Region::JAPAN),
+        0x80 => ("Europe (PAL)", Region::EUROPE),
+        0xC0 => ("USA (NTSC-U)", Region::USA),
+        0x00 => (
+            // May indicate region-free or BIOS-dependent.
+            "Unrestricted/BIOS region",
+            Region::USA | Region::EUROPE | Region::JAPAN,
+        ),
+        _ => ("Unknown", Region::UNKNOWN),
     }
 }
 
@@ -85,14 +139,7 @@ pub fn analyze_segacd_data(
     // Region byte is at offset 0x10B in the boot program.
     let region_code = data[0x10B];
 
-    let region_name = match region_code {
-        0x40 => "Japan (NTSC-J)",
-        0x80 => "Europe (PAL)",
-        0xC0 => "USA (NTSC-U)",
-        0x00 => "Unrestricted/BIOS region", // May indicate region-free or BIOS-dependent.
-        _ => "Unknown Code",
-    }
-    .to_string();
+    let (region_name, region) = map_region(region_code);
 
     // If the signature is not recognized, we might still proceed if the region byte is present,
     // but a warning could be logged or returned.
@@ -103,11 +150,12 @@ pub fn analyze_segacd_data(
         );
     }
 
-    let region_mismatch = check_region_mismatch(source_name, &region_name);
+    let region_mismatch = check_region_mismatch(source_name, region);
 
     Ok(SegaCdAnalysis {
         source_name: source_name.to_string(),
-        region: region_name,
+        region,
+        region_string: region_name.to_string(),
         region_mismatch,
         region_code,
         signature,
@@ -146,7 +194,8 @@ mod tests {
         assert_eq!(analysis.source_name, "test_rom_jp.iso");
         assert_eq!(analysis.signature, "SEGA CD");
         assert_eq!(analysis.region_code, 0x40);
-        assert_eq!(analysis.region, "Japan (NTSC-J)");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan (NTSC-J)");
         Ok(())
     }
 
@@ -158,7 +207,8 @@ mod tests {
         assert_eq!(analysis.source_name, "test_rom_eur.iso");
         assert_eq!(analysis.signature, "SEGA CD");
         assert_eq!(analysis.region_code, 0x80);
-        assert_eq!(analysis.region, "Europe (PAL)");
+        assert_eq!(analysis.region, Region::EUROPE);
+        assert_eq!(analysis.region_string, "Europe (PAL)");
         Ok(())
     }
 
@@ -170,7 +220,8 @@ mod tests {
         assert_eq!(analysis.source_name, "test_rom_us.iso");
         assert_eq!(analysis.signature, "SEGA CD");
         assert_eq!(analysis.region_code, 0xC0);
-        assert_eq!(analysis.region, "USA (NTSC-U)");
+        assert_eq!(analysis.region, Region::USA);
+        assert_eq!(analysis.region_string, "USA (NTSC-U)");
         Ok(())
     }
 
@@ -182,7 +233,11 @@ mod tests {
         assert_eq!(analysis.source_name, "test_rom_unrestricted.iso");
         assert_eq!(analysis.signature, "SEGA CD");
         assert_eq!(analysis.region_code, 0x00);
-        assert_eq!(analysis.region, "Unrestricted/BIOS region");
+        assert_eq!(
+            analysis.region,
+            Region::USA | Region::EUROPE | Region::JAPAN
+        );
+        assert_eq!(analysis.region_string, "Unrestricted/BIOS region");
         Ok(())
     }
 
@@ -194,7 +249,8 @@ mod tests {
         assert_eq!(analysis.source_name, "test_rom_mega_jp.iso");
         assert_eq!(analysis.signature, "SEGA MEGA");
         assert_eq!(analysis.region_code, 0x40);
-        assert_eq!(analysis.region, "Japan (NTSC-J)");
+        assert_eq!(analysis.region, Region::JAPAN);
+        assert_eq!(analysis.region_string, "Japan (NTSC-J)");
         Ok(())
     }
 
@@ -206,7 +262,8 @@ mod tests {
         assert_eq!(analysis.source_name, "test_rom_unknown.iso");
         assert_eq!(analysis.signature, "SEGA CD");
         assert_eq!(analysis.region_code, 0xFF);
-        assert_eq!(analysis.region, "Unknown Code");
+        assert_eq!(analysis.region, Region::UNKNOWN);
+        assert_eq!(analysis.region_string, "Unknown");
         Ok(())
     }
 
