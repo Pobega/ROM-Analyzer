@@ -1,10 +1,11 @@
 [package]
 name = "rom-analyzer"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2024"
 license = "MIT"
 authors = ["Michael Pobega <pobega@gmail.com>"]
 description = "A CLI tool for analyzing console ROM file headers."
+repository = "https://github.com/Pobega/ROM-Analyzer"
 
 [lib]
 
