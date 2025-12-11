@@ -34,7 +34,7 @@ bitflags! {
         const KOREA = 1 << 6;
 
         // Dynamic "WORLD" that matches all available regions and is safe.
-        const WORLD = Self::JAPAN.bits() | Self::USA.bits() | Self::EUROPE.bits() | Self::RUSSIA.bits();
+        const WORLD = u8::MAX;
     }
 }
 
