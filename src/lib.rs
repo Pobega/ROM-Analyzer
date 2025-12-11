@@ -6,8 +6,8 @@
 //! Sega Master System, Game Gear, Game Boy, Game Boy Advance, Sega Genesis, and Sega CD.  It can
 //! also handle ROMs packaged as ZIP or CHD (Compressed Hunks of Data) archives.
 //!
-//! The primary entry point for analysis is the `analyze_rom_data` function, which takes a file
-//! path and returns a `RomAnalysisResult` enum containing console-specific analysis data.
+//! The primary entry point for analysis is the [`analyze_rom_data`] function, which takes a file
+//! path and returns a [`RomAnalysisResult`] enum containing console-specific analysis data.
 
 pub mod archive;
 pub mod console;
@@ -100,7 +100,7 @@ fn get_file_extension_lowercase(file_path: &str) -> String {
         .to_lowercase()
 }
 
-/// Maps a file's **extension** to the corresponding **RomFileType** for supported consoles.
+/// Maps a file's **extension** to the corresponding [`RomFileType`] for supported consoles.
 ///
 /// The file extension is extracted from the provided name, converted to lowercase
 /// and matched against a predefined list of extensions for different retro gaming systems.
@@ -111,19 +111,19 @@ fn get_file_extension_lowercase(file_path: &str) -> String {
 ///
 /// # Returns
 ///
-/// A **RomFileType** variant corresponding to the file extension:
+/// A [`RomFileType`] variant corresponding to the file extension:
 ///
-/// * **RomFileType::Nes** for `nes`
-/// * **RomFileType::Snes** for `smc` or `sfc`
-/// * **RomFileType::N64** for `n64`, `v64`, or `z64`
-/// * **RomFileType::MasterSystem** for `sms`
-/// * **RomFileType::GameGear** for `gg`
-/// * **RomFileType::GameBoy** for `gb` or `gbc`
-/// * **RomFileType::GameBoyAdvance** for `gba`
-/// * **RomFileType::Genesis** for `md`, `gen`, or `32x`
-/// * **RomFileType::SegaCD** for `scd`
-/// * **RomFileType::CDSystem** for `iso`, `bin`, `img`, `psx`, or `chd`
-/// * **RomFileType::Unknown** for any other extension.
+/// * [`RomFileType::Nes`] for `nes`
+/// * [`RomFileType::Snes`] for `smc` or `sfc`
+/// * [`RomFileType::N64`] for `n64`, `v64`, or `z64`
+/// * [`RomFileType::MasterSystem`] for `sms`
+/// * [`RomFileType::GameGear`] for `gg`
+/// * [`RomFileType::GameBoy`] for `gb` or `gbc`
+/// * [`RomFileType::GameBoyAdvance`] for `gba`
+/// * [`RomFileType::Genesis`] for `md`, `gen`, or `32x`
+/// * [`RomFileType::SegaCD`] for `scd`
+/// * [`RomFileType::CDSystem`] for `iso`, `bin`, `img`, `psx`, or `chd`
+/// * [`RomFileType::Unknown`] for any other extension.
 ///
 /// # Examples
 ///
@@ -160,7 +160,7 @@ pub fn get_rom_file_type(name: &str) -> RomFileType {
 /// Processes raw ROM data based on its determined file type.
 ///
 /// This function takes the raw byte data of a ROM file and its path, determines
-/// the console type using `get_rom_file_type` and then dispatches the data to
+/// the console type using [`get_rom_file_type`] and then dispatches the data to
 /// the appropriate console-specific analysis function.
 ///
 /// # Arguments
@@ -170,7 +170,7 @@ pub fn get_rom_file_type(name: &str) -> RomFileType {
 ///
 /// # Returns
 ///
-/// A `Result` containing either a `RomAnalysisResult` with the analysis data
+/// A `Result` containing either a [`RomAnalysisResult`] with the analysis data
 /// or a `Box<dyn Error>`.
 fn process_rom_data(data: Vec<u8>, rom_path: &str) -> Result<RomAnalysisResult, Box<dyn Error>> {
     match get_rom_file_type(rom_path) {
@@ -237,7 +237,7 @@ fn process_rom_data(data: Vec<u8>, rom_path: &str) -> Result<RomAnalysisResult, 
 ///
 /// # Returns
 ///
-/// A `Result` containing either a `RomAnalysisResult` with the analysis data
+/// A `Result` containing either a [`RomAnalysisResult`] with the analysis data
 /// or a `Box<dyn Error>`.
 ///
 /// # Examples

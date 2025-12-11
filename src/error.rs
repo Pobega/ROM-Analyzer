@@ -12,7 +12,7 @@ pub struct RomAnalyzerError {
 }
 
 impl RomAnalyzerError {
-    /// Creates a new `RomAnalyzerError` with the given message.
+    /// Creates a new [`RomAnalyzerError`] with the given message.
     ///
     /// # Arguments
     ///

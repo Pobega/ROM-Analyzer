@@ -61,7 +61,7 @@ impl GbaAnalysis {
 /// A tuple containing:
 /// - A `&'static str` representing the region as written in the ROM header (e.g., "USA", "Japan",
 ///   "Europe") or "Unknown" if the region code is not recognized.
-/// - A `Region` bitmask representing the region(s) associated with the code.
+/// - A [`Region`] bitmask representing the region(s) associated with the code.
 ///
 /// # Examples
 ///
@@ -109,7 +109,7 @@ pub fn map_region(region_byte: u8) -> (&'static str, Region) {
 /// # Returns
 ///
 /// A `Result` which is:
-/// - `Ok(GbaAnalysis)` containing the detailed analysis results.
+/// - `Ok`([`GbaAnalysis`]) containing the detailed analysis results.
 /// - `Err(Box<dyn Error>)` if the ROM data is too small to contain a valid GBA header.
 pub fn analyze_gba_data(data: &[u8], source_name: &str) -> Result<GbaAnalysis, Box<dyn Error>> {
     // GBA header is at offset 0x0. Relevant info: Game Title (0xA0-0xAC), Game Code (0xAC-0xB0), Maker Code (0xB0-0xB2), Region (0xB4).

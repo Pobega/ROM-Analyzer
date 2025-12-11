@@ -58,7 +58,7 @@ impl PsxAnalysis {
 /// A tuple containing:
 /// - A `&'static str` representing the region (e.g., "North America (NTSC-U)", "Europe (PAL)", etc)
 ///   or "Unknown" if the region code is not recognized.
-/// - A `Region` bitmask representing the region(s) associated with the code.
+/// - A [`Region`] bitmask representing the region(s) associated with the code.
 ///
 /// # Examples
 ///
@@ -106,7 +106,7 @@ pub fn map_region(region_code: &str) -> (&'static str, Region) {
 /// # Returns
 ///
 /// A `Result` which is:
-/// - `Ok(PsxAnalysis)` containing the detailed analysis results.
+/// - `Ok`([`PsxAnalysis`]) containing the detailed analysis results.
 /// - `Err(Box<dyn Error>)` if the ROM data is too small for reliable analysis.
 pub fn analyze_psx_data(data: &[u8], source_name: &str) -> Result<PsxAnalysis, Box<dyn Error>> {
     // Check the first 128KB (0x20000 bytes)

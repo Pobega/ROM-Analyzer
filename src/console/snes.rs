@@ -69,7 +69,7 @@ impl SnesAnalysis {
 /// A tuple containing:
 /// - A `&'static str` representing the region as written in the ROM header (e.g., "Japan (NTSC)",
 ///   "USA / Canada (NTSC)", etc.) or "Unknown" if the region code is not recognized.
-/// - A `Region` bitmask representing the region(s) associated with the code.
+/// - A [`Region`] bitmask representing the region(s) associated with the code.
 ///
 /// # Examples
 ///
@@ -182,7 +182,7 @@ pub fn validate_snes_checksum(rom_data: &[u8], header_offset: usize) -> bool {
 /// # Returns
 ///
 /// A `Result` which is:
-/// - `Ok(SnesAnalysis)` containing the detailed analysis results.
+/// - `Ok`([`SnesAnalysis`]) containing the detailed analysis results.
 /// - `Err(Box<dyn Error>)` if the ROM data is too small or the header is deemed invalid
 ///   such that critical information cannot be read.
 pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<SnesAnalysis, Box<dyn Error>> {

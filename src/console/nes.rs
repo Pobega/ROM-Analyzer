@@ -74,7 +74,7 @@ impl NesAnalysis {
 /// A tuple containing:
 /// - A `&'static str` representing the region as written in the ROM header (e.g., "Multi-region",
 ///  "PAL (Europe/Oceania)", "NTSC (USA/Japan)") or "Unknown" if the region code is not recognized.
-/// - A `Region` bitmask representing the region(s) associated with the code.
+/// - A [`Region`] bitmask representing the region(s) associated with the code.
 ///
 /// # Examples
 ///
@@ -131,7 +131,7 @@ pub fn map_region(region_byte: u8, nes2_format: bool) -> (&'static str, Region) 
 /// # Returns
 ///
 /// A `Result` which is:
-/// - `Ok(NesAnalysis)` containing the detailed analysis results.
+/// - `Ok`([`NesAnalysis`]) containing the detailed analysis results.
 /// - `Err(Box<dyn Error>)` if the ROM data is too small or has an invalid iNES signature.
 pub fn analyze_nes_data(data: &[u8], source_name: &str) -> Result<NesAnalysis, Box<dyn Error>> {
     if data.len() < 16 {

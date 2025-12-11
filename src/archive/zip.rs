@@ -22,7 +22,7 @@ const MAX_ROM_SIZE: u64 = 128 * 1024;
 /// Processes a ZIP archive to find and extract the first supported ROM file.
 ///
 /// This function opens the provided ZIP file, iterates through its entries,
-/// and checks if any entry has a file extension listed in `SUPPORTED_ROM_EXTENSIONS`.
+/// and checks if any entry has a file extension listed in [`SUPPORTED_ROM_EXTENSIONS`].
 /// If a supported ROM is found, its decompressed data and filename are returned.
 /// Only the first supported ROM encountered is extracted.
 ///

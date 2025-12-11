@@ -78,7 +78,7 @@ impl GenesisAnalysis {
 /// A tuple containing:
 /// - A `&'static str` representing the region as written in the ROM header (e.g., "USA (NTSC-U)",
 ///   "Europe (PAL)") or "Unknown" if the region code is not recognized.
-/// - A `Region` bitmask representing the region(s) associated with the code.
+/// - A [`Region`] bitmask representing the region(s) associated with the code.
 ///
 /// # Examples
 ///
@@ -136,7 +136,7 @@ pub fn map_region(region_byte: u8) -> (&'static str, Region) {
 /// # Returns
 ///
 /// A `Result` which is:
-/// - `Ok(GenesisAnalysis)` containing the detailed analysis results.
+/// - `Ok`([`GenesisAnalysis`]) containing the detailed analysis results.
 /// - `Err(Box<dyn Error>)` if the ROM data is too small to contain a valid Sega header.
 pub fn analyze_genesis_data(
     data: &[u8],
