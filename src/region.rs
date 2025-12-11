@@ -6,8 +6,8 @@
 //! functions for inferring regions from filenames and comparing inferred regions
 //! with regions reported by ROM headers.
 //!
-//! The `Region` bitflag struct is used to represent geographical regions and allows
-//! a ROM to belong to multiple regions (e.g., NES NTSC = USA + JAPAN). The `WORLD`
+//! The [`Region`] bitflag struct is used to represent geographical regions and allows
+//! a ROM to belong to multiple regions (e.g., NES NTSC = USA + JAPAN). The [`Region::WORLD`]
 //! constant is a special case that represents ROMs compatible with multiple regions.
 
 use std::fmt;
@@ -19,7 +19,7 @@ bitflags! {
     /// A bitflag struct representing geographical regions.
     /// Allows a ROM to belong to multiple regions (e.g., NES NTSC = USA + JAPAN).
     ///
-    /// The `WORLD` constant is a special case that represents ROMs compatible with
+    /// The [`Region::WORLD`] constant is a special case that represents ROMs compatible with
     /// multiple regions (e.g. USA and Europe for ROMs with an 'Overseas' region).
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
     pub struct Region: u8 {
@@ -82,7 +82,7 @@ impl fmt::Display for Region {
 ///
 /// # Returns
 ///
-/// Returns a `Region` bitmask. If no region is found, returns `Region::UNKNOWN`.
+/// Returns a [`Region`] bitmask. If no region is found, returns [`Region::UNKNOWN`].
 ///
 /// # Examples
 ///

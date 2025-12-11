@@ -64,7 +64,7 @@ impl GameGearAnalysis {
 /// A tuple containing:
 /// - A `&'static str` representing the region as written in the ROM header (e.g., "SMS Japan",
 ///   "GameGear International") or "Unknown" if the region code is not recognized.
-/// - A `Region` bitmask representing the region(s) associated with the code.
+/// - A [`Region`] bitmask representing the region(s) associated with the code.
 ///
 /// # Examples
 ///
@@ -114,7 +114,7 @@ pub fn map_region(region_byte: u8) -> (&'static str, Region) {
 /// # Returns
 ///
 /// A `Result` which is:
-/// - `Ok(GameGearAnalysis)` containing the detailed analysis results.
+/// - `Ok`([`GameGearAnalysis`]) containing the detailed analysis results.
 /// - `Err(Box<dyn Error>)` if any critical error occurs during analysis.
 pub fn analyze_gamegear_data(
     data: &[u8],

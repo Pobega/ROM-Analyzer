@@ -105,7 +105,7 @@ pub fn map_region(country_code: &str) -> (&'static str, Region) {
 /// # Returns
 ///
 /// A `Result` which is:
-/// - `Ok(N64Analysis)` containing the detailed analysis results.
+/// - `Ok`([`N64Analysis`]) containing the detailed analysis results.
 /// - `Err(Box<dyn Error>)` if the ROM data is too small to contain a valid N64 header.
 pub fn analyze_n64_data(data: &[u8], source_name: &str) -> Result<N64Analysis, Box<dyn Error>> {
     // N64 header is at offset 0x0. Country code is at offset 0x3E (2 bytes).
