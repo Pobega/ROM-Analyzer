@@ -221,8 +221,8 @@ pub fn analyze_snes_data(data: &[u8], source_name: &str) -> Result<SnesAnalysis,
         None
     };
 
-    let is_lorom_map_mode = lorom_map_mode_byte.map_or(false, |b| LOROM_MAP_MODES.contains(&b));
-    let is_hirom_map_mode = hirom_map_mode_byte.map_or(false, |b| HIROM_MAP_MODES.contains(&b));
+    let is_lorom_map_mode = lorom_map_mode_byte.is_some_and(|b| LOROM_MAP_MODES.contains(&b));
+    let is_hirom_map_mode = hirom_map_mode_byte.is_some_and(|b| HIROM_MAP_MODES.contains(&b));
 
     // Decision logic: Prioritize HiROM if both checksum and map mode are consistent.
     // Then check LoROM similarly. If only one checksum is valid, use that.
