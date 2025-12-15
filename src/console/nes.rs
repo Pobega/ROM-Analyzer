@@ -73,7 +73,7 @@ impl NesAnalysis {
 ///
 /// A tuple containing:
 /// - A `&'static str` representing the region as written in the ROM header (e.g., "Multi-region",
-///  "PAL (Europe/Oceania)", "NTSC (USA/Japan)") or "Unknown" if the region code is not recognized.
+///   "PAL (Europe/Oceania)", "NTSC (USA/Japan)") or "Unknown" if the region code is not recognized.
 /// - A [`Region`] bitmask representing the region(s) associated with the code.
 ///
 /// # Examples

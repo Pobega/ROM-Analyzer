@@ -123,8 +123,7 @@ pub fn analyze_gamegear_data(
     // All headered Sega 8-bit ROMs should begin with 'TMR SEGA'
     // This can exist at one of three locations; 0x1ff0, 0x3ff0 or 0x7ff0
     let header_start_opt = POSSIBLE_HEADER_STARTS.iter().copied().find(|&offset| {
-        data.get(offset..offset + SEGA_HEADER_SIGNATURE.len())
-            .map_or(false, |s| s == SEGA_HEADER_SIGNATURE)
+        data.get(offset..offset + SEGA_HEADER_SIGNATURE.len()) == Some(SEGA_HEADER_SIGNATURE)
     });
 
     let mut region = Region::UNKNOWN;
@@ -172,7 +171,7 @@ mod tests {
     // Helper function to create dummy ROM data with a Game Gear header
     fn create_rom_data_with_header(header_start: usize, region_code: u8) -> Vec<u8> {
         let mut data = vec![0; 0x8000]; // Sufficiently large dummy data
-        if data.len() >= header_start + REGION_CODE_OFFSET + 1 {
+        if data.len() > header_start + REGION_CODE_OFFSET {
             // Write SEGA header signature
             data[header_start..header_start + SEGA_HEADER_SIGNATURE.len()]
                 .copy_from_slice(SEGA_HEADER_SIGNATURE);

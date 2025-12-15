@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use clap::{ArgAction, Parser};
-use env_logger;
+
 use log::{LevelFilter, error, info, warn};
 
 use rom_analyzer::region::infer_region_from_filename;
