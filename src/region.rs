@@ -95,22 +95,22 @@ impl fmt::Display for Region {
 /// assert_eq!(infer_region_from_filename("UnknownGame.bin"), Region::UNKNOWN);
 /// ```
 pub fn infer_region_from_filename(name: &str) -> Region {
-    let lower_name = name.to_lowercase();
+    let upper_name = name.to_uppercase();
     let mut region = Region::UNKNOWN;
 
     // Define region patterns with their corresponding flags
     let region_patterns = [
-        (vec!["jap", "jp", "(j)", "[j]", "ntsc-j"], Region::JAPAN),
-        (vec!["usa", "(u)", "[u]", "ntsc-u", "ntsc-us"], Region::USA),
-        (vec!["eur", "(e)", "[e]", "pal", "ntsc-e"], Region::EUROPE),
-        (vec!["russia", "dendy"], Region::RUSSIA),
-        (vec!["(world)", "[world]", "(w)", "[w]"], Region::WORLD),
+        (vec!["JAP", "JP", "(J)", "[J]", "NTSC-J"], Region::JAPAN),
+        (vec!["USA", "(U)", "[U]", "NTSC-U", "NTSC-US"], Region::USA),
+        (vec!["EUR", "(E)", "[E]", "PAL", "NTSC-E"], Region::EUROPE),
+        (vec!["RUSSIA", "DENDY"], Region::RUSSIA),
+        (vec!["(WORLD)", "[WORLD]", "(W)", "[W]"], Region::WORLD),
     ];
 
     // Check each pattern and set the corresponding region flag
     for (patterns, flag) in region_patterns {
         for pattern in patterns {
-            if lower_name.contains(pattern) {
+            if upper_name.contains(pattern) {
                 region |= flag;
                 break;
             }
