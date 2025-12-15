@@ -70,6 +70,14 @@ impl fmt::Display for Region {
     }
 }
 
+const REGION_PATTERNS: &[(&[&str], Region)] = &[
+    (&["JAP", "JP", "(J)", "[J]", "NTSC-J"], Region::JAPAN),
+    (&["USA", "(U)", "[U]", "NTSC-U", "NTSC-US"], Region::USA),
+    (&["EUR", "(E)", "[E]", "PAL", "NTSC-E"], Region::EUROPE),
+    (&["RUSSIA", "DENDY"], Region::RUSSIA),
+    (&["(WORLD)", "[WORLD]", "(W)", "[W]"], Region::WORLD),
+];
+
 /// Infers the geographical region of a ROM from its filename.
 ///
 /// This function examines the provided filename for common region indicators (e.g., "JP", "USA",
@@ -95,29 +103,18 @@ impl fmt::Display for Region {
 /// assert_eq!(infer_region_from_filename("UnknownGame.bin"), Region::UNKNOWN);
 /// ```
 pub fn infer_region_from_filename(name: &str) -> Region {
+    // Case-insensitively scan the filename for known region tokens and OR together
+    // any matching region flags to produce a combined Region bitmask.
     let upper_name = name.to_uppercase();
-    let mut region = Region::UNKNOWN;
-
-    // Define region patterns with their corresponding flags
-    let region_patterns = [
-        (vec!["JAP", "JP", "(J)", "[J]", "NTSC-J"], Region::JAPAN),
-        (vec!["USA", "(U)", "[U]", "NTSC-U", "NTSC-US"], Region::USA),
-        (vec!["EUR", "(E)", "[E]", "PAL", "NTSC-E"], Region::EUROPE),
-        (vec!["RUSSIA", "DENDY"], Region::RUSSIA),
-        (vec!["(WORLD)", "[WORLD]", "(W)", "[W]"], Region::WORLD),
-    ];
-
-    // Check each pattern and set the corresponding region flag
-    for (patterns, flag) in region_patterns {
-        for pattern in patterns {
-            if upper_name.contains(pattern) {
-                region |= flag;
-                break;
+    REGION_PATTERNS
+        .iter()
+        .fold(Region::UNKNOWN, |acc, (patterns, flag)| {
+            if patterns.iter().any(|pattern| upper_name.contains(*pattern)) {
+                acc | *flag
+            } else {
+                acc
             }
-        }
-    }
-
-    region
+        })
 }
 
 /// Compare the inferred region (via filename) to the region reported by the ROM's header.
