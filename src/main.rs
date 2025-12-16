@@ -26,6 +26,10 @@ struct Cli {
     /// Format output as JSON (suppresses everything except STDERR)
     #[clap(short, long, action = ArgAction::SetTrue)]
     json: bool,
+
+    /// Number of threads to use for parallel processing
+    #[clap(long, value_name = "N")]
+    threads: Option<usize>,
 }
 
 fn get_log_level(quiet: bool, verbose: u8) -> LevelFilter {
@@ -64,6 +68,18 @@ fn process_files_parallel(
 
 fn main() {
     let cli = Cli::parse();
+
+    if let Some(num_threads) = cli.threads
+        && num_threads != 0
+    {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(num_threads)
+            .build_global()
+            .unwrap_or_else(|e| {
+                eprintln!("Failed to set thread pool: {}", e);
+                std::process::exit(1);
+            });
+    }
 
     let default_log_level = get_log_level(cli.quiet, cli.verbose);
 
