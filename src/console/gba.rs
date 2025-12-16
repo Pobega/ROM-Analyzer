@@ -6,8 +6,6 @@
 //! GBA header documentation referenced here:
 //! <https://problemkaputt.de/gbatek-gba-cartridge-header.htm>
 
-use std::error::Error;
-
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
@@ -110,17 +108,17 @@ pub fn map_region(region_byte: u8) -> (&'static str, Region) {
 ///
 /// A `Result` which is:
 /// - `Ok`([`GbaAnalysis`]) containing the detailed analysis results.
-/// - `Err(Box<dyn Error>)` if the ROM data is too small to contain a valid GBA header.
-pub fn analyze_gba_data(data: &[u8], source_name: &str) -> Result<GbaAnalysis, Box<dyn Error>> {
+/// - `Err`([`RomAnalyzerError`]) if the ROM data is too small to contain a valid GBA header.
+pub fn analyze_gba_data(data: &[u8], source_name: &str) -> Result<GbaAnalysis, RomAnalyzerError> {
     // GBA header is at offset 0x0. Relevant info: Game Title (0xA0-0xAC), Game Code (0xAC-0xB0), Maker Code (0xB0-0xB2), Region (0xB4).
     // The header is typically 192 bytes (0xC0), but we'll use a slightly larger safety margin.
     const HEADER_SIZE: usize = 0xC0;
     if data.len() < HEADER_SIZE {
-        return Err(Box::new(RomAnalyzerError::new(&format!(
-            "ROM data is too small to contain a GBA header (size: {} bytes, requires at least {} bytes).",
-            data.len(),
-            HEADER_SIZE
-        ))));
+        return Err(RomAnalyzerError::DataTooSmall {
+            file_size: data.len(),
+            required_size: HEADER_SIZE,
+            details: "GBA header".to_string(),
+        });
     }
 
     // Extract Game Title (12 bytes, null-terminated)
@@ -160,7 +158,6 @@ pub fn analyze_gba_data(data: &[u8], source_name: &str) -> Result<GbaAnalysis, B
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::error::Error;
 
     /// Helper function to generate a minimal GBA header for testing.
     fn generate_gba_header(
@@ -193,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gba_data_japan_code() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gba_data_japan_code() -> Result<(), RomAnalyzerError> {
         let data = generate_gba_header("ABCD", "XX", 0x00, "GBA JP GAME"); // Japan region code 0x00
         let analysis = analyze_gba_data(&data, "test_rom_jp.gba")?;
 
@@ -216,7 +213,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gba_data_pal_char() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gba_data_pal_char() -> Result<(), RomAnalyzerError> {
         let data = generate_gba_header("YZAB", "DD", b'P', "GBA PAL GAME"); // PAL region char 'P'
         let analysis = analyze_gba_data(&data, "test_rom_pal.gba")?;
 
@@ -239,7 +236,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gba_data_europe_char() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gba_data_europe_char() -> Result<(), RomAnalyzerError> {
         let data = generate_gba_header("IJKL", "ZZ", b'E', "GBA EUR GAME"); // Europe region char 'E'
         let analysis = analyze_gba_data(&data, "test_rom_eur.gba")?;
 
@@ -253,7 +250,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gba_data_japan_char() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gba_data_japan_char() -> Result<(), RomAnalyzerError> {
         let data = generate_gba_header("MNOP", "AA", b'J', "GBA JP CHAR"); // Japan region char 'J'
         let analysis = analyze_gba_data(&data, "test_rom_jp_char.gba")?;
 
@@ -267,7 +264,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gba_data_usa_char() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gba_data_usa_char() -> Result<(), RomAnalyzerError> {
         let data = generate_gba_header("UVWX", "CC", b'U', "GBA US CHAR"); // USA region char 'U'
         let analysis = analyze_gba_data(&data, "test_rom_us_char.gba")?;
 

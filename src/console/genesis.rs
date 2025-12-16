@@ -6,8 +6,6 @@
 //! Genesis header documentation referenced here:
 //! <https://plutiedev.com/rom-header#system>
 
-use std::error::Error;
-
 use log::error;
 use serde::Serialize;
 
@@ -137,20 +135,20 @@ pub fn map_region(region_byte: u8) -> (&'static str, Region) {
 ///
 /// A `Result` which is:
 /// - `Ok`([`GenesisAnalysis`]) containing the detailed analysis results.
-/// - `Err(Box<dyn Error>)` if the ROM data is too small to contain a valid Sega header.
+/// - `Err`([`RomAnalyzerError`]) if the ROM data is too small to contain a valid Sega header.
 pub fn analyze_genesis_data(
     data: &[u8],
     source_name: &str,
-) -> Result<GenesisAnalysis, Box<dyn Error>> {
+) -> Result<GenesisAnalysis, RomAnalyzerError> {
     // Sega Genesis/Mega Drive header is at offset 0x100. It's 256 bytes long.
     // The region byte is at offset 0x1F0 (relative to ROM start).
     const HEADER_SIZE: usize = 0x200; // Minimum size to contain the header and region byte.
     if data.len() < HEADER_SIZE {
-        return Err(Box::new(RomAnalyzerError::new(&format!(
-            "ROM data is too small to contain a Sega header (size: {} bytes, requires at least {} bytes).",
-            data.len(),
-            HEADER_SIZE
-        ))));
+        return Err(RomAnalyzerError::DataTooSmall {
+            file_size: data.len(),
+            required_size: HEADER_SIZE,
+            details: "Sega header".to_string(),
+        });
     }
 
     // Verify Sega header signature "SEGA MEGA DRIVE " or "SEGA GENESIS"
@@ -205,7 +203,6 @@ pub fn analyze_genesis_data(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::error::Error;
 
     /// Helper function to generate a minimal Sega cartridge header for testing.
     fn generate_genesis_header(
@@ -236,7 +233,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_genesis_data_usa() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_genesis_data_usa() -> Result<(), RomAnalyzerError> {
         let data =
             generate_genesis_header(b"SEGA MEGA DRIVE ", b'U', "DOMESTIC US", "INTERNATIONAL US");
         let analysis = analyze_genesis_data(&data, "test_rom_us.md")?;
@@ -261,7 +258,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_genesis_data_japan() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_genesis_data_japan() -> Result<(), RomAnalyzerError> {
         let data =
             generate_genesis_header(b"SEGA MEGA DRIVE ", b'J', "DOMESTIC JP", "INTERNATIONAL JP");
         let analysis = analyze_genesis_data(&data, "test_rom_jp.md")?;
@@ -277,7 +274,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_genesis_data_brazil() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_genesis_data_brazil() -> Result<(), RomAnalyzerError> {
         let data = generate_genesis_header(b"SEGA MEGA DRIVE ", b'B', "DOMESTIC BRA", "INT BRA");
         let analysis = analyze_genesis_data(&data, "test_rom_bra.md")?;
 
@@ -289,7 +286,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_genesis_data_genesis_signature() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_genesis_data_genesis_signature() -> Result<(), RomAnalyzerError> {
         let data = generate_genesis_header(b"SEGA GENESIS    ", b'U', "GENESIS DOM", "GENESIS INT");
         let analysis = analyze_genesis_data(&data, "test_rom_genesis.gen")?;
 
@@ -302,7 +299,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_genesis_data_asia() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_genesis_data_asia() -> Result<(), RomAnalyzerError> {
         let data = generate_genesis_header(b"SEGA MEGA DRIVE ", b'A', "DOMESTIC ASIA", "INT ASIA");
         let analysis = analyze_genesis_data(&data, "test_rom_asia.md")?;
 
@@ -314,7 +311,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_genesis_data_china() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_genesis_data_china() -> Result<(), RomAnalyzerError> {
         let data =
             generate_genesis_header(b"SEGA MEGA DRIVE ", b'C', "DOMESTIC CHINA", "INT CHINA");
         let analysis = analyze_genesis_data(&data, "test_rom_chn.md")?;

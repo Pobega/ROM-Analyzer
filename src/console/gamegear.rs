@@ -6,11 +6,10 @@
 //! Game Gear header documentation referenced here:
 //! <https://www.smspower.org/Development/ROMHeader>
 
-use std::error::Error;
-
 use log::debug;
 use serde::Serialize;
 
+use crate::RomAnalyzerError;
 use crate::region::{Region, check_region_mismatch, infer_region_from_filename};
 
 const POSSIBLE_HEADER_STARTS: &[usize] = &[0x7ff0, 0x3ff0, 0x1ff0];
@@ -115,11 +114,11 @@ pub fn map_region(region_byte: u8) -> (&'static str, Region) {
 ///
 /// A `Result` which is:
 /// - `Ok`([`GameGearAnalysis`]) containing the detailed analysis results.
-/// - `Err(Box<dyn Error>)` if any critical error occurs during analysis.
+/// - `Err`([`RomAnalyzerError`]) if any critical error occurs during analysis.
 pub fn analyze_gamegear_data(
     data: &[u8],
     source_name: &str,
-) -> Result<GameGearAnalysis, Box<dyn Error>> {
+) -> Result<GameGearAnalysis, RomAnalyzerError> {
     // All headered Sega 8-bit ROMs should begin with 'TMR SEGA'
     // This can exist at one of three locations; 0x1ff0, 0x3ff0 or 0x7ff0
     let header_start_opt = POSSIBLE_HEADER_STARTS.iter().copied().find(|&offset| {
@@ -166,7 +165,6 @@ pub fn analyze_gamegear_data(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::error::Error;
 
     // Helper function to create dummy ROM data with a Game Gear header
     fn create_rom_data_with_header(header_start: usize, region_code: u8) -> Vec<u8> {
@@ -183,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_analyze_gamegear_data_header_signature_present_region_byte_missing()
-    -> Result<(), Box<dyn Error>> {
+    -> Result<(), RomAnalyzerError> {
         let header_start = 0x7ff0;
         let signature_len = SEGA_HEADER_SIGNATURE.len();
         // Create a ROM that has the signature but is too short for the region byte
@@ -199,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gamegear_data_header_japan_0x7ff0() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gamegear_data_header_japan_0x7ff0() -> Result<(), RomAnalyzerError> {
         // 0x50 >> 4 = 0x5 (GameGear Japan)
         let data = create_rom_data_with_header(0x7ff0, 0x50);
         let analysis = analyze_gamegear_data(&data, "test_rom.gg")?;
@@ -217,7 +215,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gamegear_data_header_export_0x3ff0() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gamegear_data_header_export_0x3ff0() -> Result<(), RomAnalyzerError> {
         // 0x60 >> 4 = 0x6 (GameGear Export)
         let data = create_rom_data_with_header(0x3ff0, 0x60);
         let analysis = analyze_gamegear_data(&data, "test_rom.gg")?;
@@ -235,7 +233,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gamegear_data_header_international_0x1ff0() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gamegear_data_header_international_0x1ff0() -> Result<(), RomAnalyzerError> {
         // 0x70 >> 4 = 0x7 (GameGear International)
         let data = create_rom_data_with_header(0x1ff0, 0x70);
         let analysis = analyze_gamegear_data(&data, "test_rom.gg")?;
@@ -247,7 +245,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gamegear_data_no_header_infer_from_filename() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gamegear_data_no_header_infer_from_filename() -> Result<(), RomAnalyzerError> {
         let data = vec![0; 0x8000]; // No header
         let analysis = analyze_gamegear_data(&data, "my_game_usa.gg")?;
         assert_eq!(analysis.source_name, "my_game_usa.gg");
@@ -266,7 +264,7 @@ mod tests {
 
     #[test]
     fn test_analyze_gamegear_data_header_unknown_region_infer_from_filename()
-    -> Result<(), Box<dyn Error>> {
+    -> Result<(), RomAnalyzerError> {
         // Header exists, but region code (0xF0 >> 4 = 0xF) is unknown, so it should infer from filename.
         let data = create_rom_data_with_header(0x7ff0, 0xF0);
         let analysis = analyze_gamegear_data(&data, "my_game_japan.gg")?;
@@ -298,7 +296,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gamegear_data_usa() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gamegear_data_usa() -> Result<(), RomAnalyzerError> {
         let data = vec![0; 0x100]; // Dummy data
         let analysis = analyze_gamegear_data(&data, "test_rom_usa.gg")?;
         assert_eq!(analysis.source_name, "test_rom_usa.gg");
@@ -308,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gamegear_data_japan() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gamegear_data_japan() -> Result<(), RomAnalyzerError> {
         let data = vec![0; 0x100]; // Dummy data
         let analysis = analyze_gamegear_data(&data, "test_rom_jp.gg")?;
         assert_eq!(analysis.source_name, "test_rom_jp.gg");
@@ -318,7 +316,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gamegear_data_europe() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gamegear_data_europe() -> Result<(), RomAnalyzerError> {
         let data = vec![0; 0x100]; // Dummy data
         let analysis = analyze_gamegear_data(&data, "test_rom_eur.gg")?;
         assert_eq!(analysis.source_name, "test_rom_eur.gg");
@@ -328,7 +326,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gamegear_data_unknown() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gamegear_data_unknown() -> Result<(), RomAnalyzerError> {
         let data = vec![0; 0x100]; // Dummy data
         let analysis = analyze_gamegear_data(&data, "test_rom.gg")?;
         assert_eq!(analysis.source_name, "test_rom.gg");

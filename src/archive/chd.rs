@@ -3,13 +3,14 @@
 //! This module focuses on decompressing and extracting relevant header data from CHD files.
 //! It exposes a function to decompress a portion of a CHD file for header analysis.
 
-use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
 use chd::Chd;
 use log::debug;
+
+use crate::error::RomAnalyzerError;
 
 // We only need the first few KB for header analysis for PSX and SegaCD.
 const MAX_HEADER_SIZE: usize = 0x20000; // 128KB
@@ -30,7 +31,7 @@ const MAX_HEADER_SIZE: usize = 0x20000; // 128KB
 ///
 /// A `Result` which is:
 /// - `Ok(Vec<u8>)` containing the decompressed initial bytes of the CHD file.
-/// - `Err(Box<dyn Error>)` if any error occurs when processing the CHD.
+/// - `Err`([`RomAnalyzerError`]) if any error occurs when processing the CHD.
 ///
 /// # Errors
 ///
@@ -38,10 +39,10 @@ const MAX_HEADER_SIZE: usize = 0x20000; // 128KB
 /// - The file cannot be opened.
 /// - The CHD format is invalid or corrupted.
 /// - There are issues during hunk decompression.
-pub fn analyze_chd_file(filepath: &Path) -> Result<Vec<u8>, Box<dyn Error>> {
+pub fn analyze_chd_file(filepath: &Path) -> Result<Vec<u8>, RomAnalyzerError> {
     let file = File::open(filepath)?;
     let mut reader = BufReader::new(file);
-    let mut chd = Chd::open(&mut reader, None)?;
+    let mut chd = Chd::open(&mut reader, None).map_err(RomAnalyzerError::ChdError)?;
 
     let hunk_count = chd.header().hunk_count();
     let hunk_size = chd.header().hunk_size();
@@ -67,8 +68,9 @@ pub fn analyze_chd_file(filepath: &Path) -> Result<Vec<u8>, Box<dyn Error>> {
             break;
         }
 
-        let mut hunk = chd.hunk(hunk_num)?;
-        hunk.read_hunk_in(&mut temp_buf, &mut out_buf)?;
+        let mut hunk = chd.hunk(hunk_num).map_err(RomAnalyzerError::ChdError)?;
+        hunk.read_hunk_in(&mut temp_buf, &mut out_buf)
+            .map_err(RomAnalyzerError::ChdError)?;
 
         let remaining_capacity = MAX_HEADER_SIZE - decompressed_data.len();
         let data_to_add = out_buf.len().min(remaining_capacity);
@@ -96,9 +98,9 @@ mod tests {
         assert!(result.is_err());
         let error = result.unwrap_err();
         // Check if the error is due to the file not found
-        assert_eq!(
-            error.downcast_ref::<std::io::Error>().map(|e| e.kind()),
-            Some(ErrorKind::NotFound)
-        );
+        match error {
+            RomAnalyzerError::IoError(io_err) => assert_eq!(io_err.kind(), ErrorKind::NotFound),
+            _ => panic!("Expected IoError variant"),
+        }
     }
 }

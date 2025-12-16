@@ -3,8 +3,6 @@
 //! This module focuses on identifying the region of PSX games by searching for known
 //! executable prefixes (e.g., "SLUS", "SLES", "SLPS") within the initial data tracks.
 
-use std::error::Error;
-
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
@@ -107,15 +105,17 @@ pub fn map_region(region_code: &str) -> (&'static str, Region) {
 ///
 /// A `Result` which is:
 /// - `Ok`([`PsxAnalysis`]) containing the detailed analysis results.
-/// - `Err(Box<dyn Error>)` if the ROM data is too small for reliable analysis.
-pub fn analyze_psx_data(data: &[u8], source_name: &str) -> Result<PsxAnalysis, Box<dyn Error>> {
+/// - `Err`([`RomAnalyzerError`]) if the ROM data is too small for reliable analysis.
+pub fn analyze_psx_data(data: &[u8], source_name: &str) -> Result<PsxAnalysis, RomAnalyzerError> {
     // Check the first 128KB (0x20000 bytes)
     let check_size = std::cmp::min(data.len(), 0x20000);
     if check_size < 0x2000 {
         // Need enough data for Volume Descriptor/Boot file
-        return Err(Box::new(RomAnalyzerError::new(
-            "PSX boot file too small for reliable analysis.",
-        )));
+        return Err(RomAnalyzerError::DataTooSmall {
+            file_size: data.len(),
+            required_size: 0x2000,
+            details: "PSX boot file analysis".to_string(),
+        });
     }
 
     let data_sample = &data[..check_size];
@@ -154,10 +154,9 @@ pub fn analyze_psx_data(data: &[u8], source_name: &str) -> Result<PsxAnalysis, B
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::error::Error;
 
     #[test]
-    fn test_analyze_psx_data_slus() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_psx_data_slus() -> Result<(), RomAnalyzerError> {
         // Ensure sufficient data for analysis, at least 0x2000 bytes.
         let mut data = vec![0; 0x2000];
         // Place the region code at an offset where it's expected.
@@ -179,7 +178,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_psx_data_sles() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_psx_data_sles() -> Result<(), RomAnalyzerError> {
         let mut data = vec![0; 0x2000];
         data[0x100..0x104].copy_from_slice(b"SLES"); // Europe
         let analysis = analyze_psx_data(&data, "test_rom_eur.iso")?;
@@ -192,7 +191,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_psx_data_slps() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_psx_data_slps() -> Result<(), RomAnalyzerError> {
         let mut data = vec![0; 0x2000];
         data[0x100..0x104].copy_from_slice(b"SLPS"); // Japan
         let analysis = analyze_psx_data(&data, "test_rom_jp.iso")?;
@@ -205,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_psx_data_unknown() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_psx_data_unknown() -> Result<(), RomAnalyzerError> {
         let data = vec![0; 0x2000];
         // No known prefix
         let analysis = analyze_psx_data(&data, "test_rom.iso")?;
@@ -235,7 +234,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_psx_data_case_insensitivity() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_psx_data_case_insensitivity() -> Result<(), RomAnalyzerError> {
         // Test that the matching is case-insensitive.
         let mut data = vec![0; 0x2000];
         data[0x100..0x104].copy_from_slice(b"sLuS"); // Mixed case
