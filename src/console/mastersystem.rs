@@ -143,6 +143,13 @@ mod tests {
         assert_eq!(analysis.region_byte, 0x30);
         assert_eq!(analysis.region, Region::JAPAN);
         assert_eq!(analysis.region_string, "Japan (NTSC)");
+        assert_eq!(
+            analysis.print(),
+            "test_rom_jp.sms\n\
+             System:       Sega Master System\n\
+             Region Code:  0x30\n\
+             Region:       Japan"
+        );
         Ok(())
     }
 

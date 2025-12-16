@@ -27,18 +27,22 @@ struct Cli {
     json: bool,
 }
 
-fn main() {
-    let cli = Cli::parse();
-
-    let default_log_level = if cli.quiet {
+fn get_log_level(quiet: bool, verbose: u8) -> LevelFilter {
+    if quiet {
         LevelFilter::Error // Only show errors if --quiet is passed.
     } else {
-        match cli.verbose {
+        match verbose {
             0 => LevelFilter::Info,  // (no -v): Show Info messages
             1 => LevelFilter::Debug, // -v: Show Debug messages
             _ => LevelFilter::Trace, // -vv or more: Show everything (Trace)
         }
-    };
+    }
+}
+
+fn main() {
+    let cli = Cli::parse();
+
+    let default_log_level = get_log_level(cli.quiet, cli.verbose);
 
     env_logger::Builder::new()
         .filter_level(default_log_level)
@@ -104,5 +108,24 @@ fn main() {
 
     if had_error {
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_log_level_quiet() {
+        assert_eq!(get_log_level(true, 0), LevelFilter::Error);
+        assert_eq!(get_log_level(true, 1), LevelFilter::Error);
+    }
+
+    #[test]
+    fn test_get_log_level_verbose_levels() {
+        assert_eq!(get_log_level(false, 0), LevelFilter::Info);
+        assert_eq!(get_log_level(false, 1), LevelFilter::Debug);
+        assert_eq!(get_log_level(false, 2), LevelFilter::Trace);
+        assert_eq!(get_log_level(false, 10), LevelFilter::Trace);
     }
 }

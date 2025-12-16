@@ -109,6 +109,7 @@ pub fn infer_region_from_filename(name: &str) -> Region {
     REGION_PATTERNS
         .iter()
         .fold(Region::UNKNOWN, |acc, (patterns, flag)| {
+            // mutants skip: functionally equivalent mutation (^ instead of |)
             if patterns.iter().any(|pattern| upper_name.contains(*pattern)) {
                 acc | *flag
             } else {
@@ -200,6 +201,24 @@ mod tests {
         assert_eq!(
             infer_region_from_filename("game (NTSC-E).zip"),
             Region::EUROPE
+        );
+    }
+
+    #[test]
+    fn test_infer_region_from_filename_russia() {
+        assert_eq!(
+            infer_region_from_filename("game (Russia).zip"),
+            Region::RUSSIA
+        );
+        assert_eq!(infer_region_from_filename("game DENDY.zip"), Region::RUSSIA);
+    }
+
+    #[test]
+    fn test_infer_region_from_filename_world() {
+        assert_eq!(infer_region_from_filename("game (W).zip"), Region::WORLD);
+        assert_eq!(
+            infer_region_from_filename("game (World).zip"),
+            Region::WORLD
         );
     }
 
@@ -323,5 +342,19 @@ mod tests {
         let filename = "Super Game (U) (J).nes";
         let region = infer_region_from_filename(filename).to_string();
         assert_eq!(region, "Japan/USA")
+    }
+
+    #[test]
+    fn test_region_display_all() {
+        assert_eq!(Region::JAPAN.to_string(), "Japan");
+        assert_eq!(Region::USA.to_string(), "USA");
+        assert_eq!(Region::EUROPE.to_string(), "Europe");
+        assert_eq!(Region::RUSSIA.to_string(), "Russia");
+        assert_eq!(Region::ASIA.to_string(), "Asia");
+        assert_eq!(Region::CHINA.to_string(), "China");
+        assert_eq!(Region::KOREA.to_string(), "Korea");
+        assert_eq!(Region::UNKNOWN.to_string(), "Unknown");
+        assert_eq!(Region::WORLD.to_string(), "World");
+        assert_eq!((Region::JAPAN | Region::USA).to_string(), "Japan/USA");
     }
 }

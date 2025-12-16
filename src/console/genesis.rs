@@ -248,6 +248,15 @@ mod tests {
         assert_eq!(analysis.region_code_byte, b'U');
         assert_eq!(analysis.region, Region::USA);
         assert_eq!(analysis.region_string, "USA (NTSC-U)");
+        assert_eq!(
+            analysis.print(),
+            "test_rom_us.md\n\
+             System:       SEGA MEGA DRIVE\n\
+             Game Title (Domestic): DOMESTIC US\n\
+             Game Title (Int.):   INTERNATIONAL US\n\
+             Region Code:  0x55 ('U')\n\
+             Region:       USA"
+        );
         Ok(())
     }
 
@@ -268,22 +277,14 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_genesis_data_europe() -> Result<(), Box<dyn Error>> {
-        let data = generate_genesis_header(
-            b"SEGA MEGA DRIVE ",
-            b'E',
-            "DOMESTIC EUR",
-            "INTERNATIONAL EUR",
-        );
-        let analysis = analyze_genesis_data(&data, "test_rom_eur.md")?;
+    fn test_analyze_genesis_data_brazil() -> Result<(), Box<dyn Error>> {
+        let data = generate_genesis_header(b"SEGA MEGA DRIVE ", b'B', "DOMESTIC BRA", "INT BRA");
+        let analysis = analyze_genesis_data(&data, "test_rom_bra.md")?;
 
-        assert_eq!(analysis.source_name, "test_rom_eur.md");
-        assert_eq!(analysis.console_name, "SEGA MEGA DRIVE");
-        assert_eq!(analysis.game_title_domestic, "DOMESTIC EUR");
-        assert_eq!(analysis.game_title_international, "INTERNATIONAL EUR");
-        assert_eq!(analysis.region_code_byte, b'E');
-        assert_eq!(analysis.region, Region::EUROPE);
-        assert_eq!(analysis.region_string, "Europe (PAL)");
+        assert_eq!(analysis.source_name, "test_rom_bra.md");
+        assert_eq!(analysis.region, Region::EUROPE); // Brazil is PAL
+        assert_eq!(analysis.region_string, "Brazil (PAL-M)");
+        assert_eq!(analysis.region_code_byte, b'B');
         Ok(())
     }
 
@@ -301,19 +302,27 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_genesis_data_unknown_region() -> Result<(), Box<dyn Error>> {
-        let data = generate_genesis_header(
-            b"SEGA MEGA DRIVE ",
-            b'Z',
-            "DOMESTIC UNK",
-            "INTERNATIONAL UNK",
-        );
-        let analysis = analyze_genesis_data(&data, "test_rom_unknown.md")?;
+    fn test_analyze_genesis_data_asia() -> Result<(), Box<dyn Error>> {
+        let data = generate_genesis_header(b"SEGA MEGA DRIVE ", b'A', "DOMESTIC ASIA", "INT ASIA");
+        let analysis = analyze_genesis_data(&data, "test_rom_asia.md")?;
 
-        assert_eq!(analysis.source_name, "test_rom_unknown.md");
-        assert_eq!(analysis.region, Region::UNKNOWN);
-        assert_eq!(analysis.region_string, "Unknown");
-        assert_eq!(analysis.region_code_byte, b'Z');
+        assert_eq!(analysis.source_name, "test_rom_asia.md");
+        assert_eq!(analysis.region, Region::ASIA);
+        assert_eq!(analysis.region_string, "Asia (NTSC)");
+        assert_eq!(analysis.region_code_byte, b'A');
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_genesis_data_china() -> Result<(), Box<dyn Error>> {
+        let data =
+            generate_genesis_header(b"SEGA MEGA DRIVE ", b'C', "DOMESTIC CHINA", "INT CHINA");
+        let analysis = analyze_genesis_data(&data, "test_rom_chn.md")?;
+
+        assert_eq!(analysis.source_name, "test_rom_chn.md");
+        assert_eq!(analysis.region, Region::CHINA);
+        assert_eq!(analysis.region_string, "China (NTSC)");
+        assert_eq!(analysis.region_code_byte, b'C');
         Ok(())
     }
 
@@ -324,5 +333,30 @@ mod tests {
         let result = analyze_genesis_data(&data, "too_small.md");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("too small"));
+    }
+
+    #[test]
+    fn test_map_region_all_codes() {
+        // Test all known region codes to catch "delete match arm" mutations
+        let test_cases = vec![
+            (b'J', "Japan (NTSC-J)", Region::JAPAN),
+            (b'U', "USA (NTSC-U)", Region::USA),
+            (b'E', "Europe (PAL)", Region::EUROPE),
+            (b'A', "Asia (NTSC)", Region::ASIA),
+            (b'B', "Brazil (PAL-M)", Region::EUROPE),
+            (b'C', "China (NTSC)", Region::CHINA),
+            (b'F', "France (PAL)", Region::EUROPE),
+            (b'K', "Korea (NTSC)", Region::KOREA),
+            (b'L', "UK (PAL)", Region::EUROPE),
+            (b'S', "Scandinavia (PAL)", Region::EUROPE),
+            (b'T', "Taiwan (NTSC)", Region::ASIA),
+            (0x34, "USA/Europe (NTSC/PAL)", Region::USA | Region::EUROPE),
+            (b'Z', "Unknown", Region::UNKNOWN), // Unknown byte
+        ];
+        for (code, expected_name, expected_region) in test_cases {
+            let (name, region) = map_region(code);
+            assert_eq!(name, expected_name, "Failed for code 0x{:02X}", code);
+            assert_eq!(region, expected_region, "Failed for code 0x{:02X}", code);
+        }
     }
 }

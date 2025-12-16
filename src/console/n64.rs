@@ -164,6 +164,13 @@ mod tests {
         assert_eq!(analysis.region, Region::USA);
         assert_eq!(analysis.region_string, "USA (NTSC)");
         assert_eq!(analysis.country_code, "E");
+        assert_eq!(
+            analysis.print(),
+            "test_rom_us.n64\n\
+             System:       Nintendo 64 (N64)\n\
+             Region:       USA\n\
+             Code:         E"
+        );
         Ok(())
     }
 

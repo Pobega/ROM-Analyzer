@@ -1,0 +1,20 @@
+exclude_re = [
+  "src/main.rs", # Exclude main.rs from mutation testing.
+  "src/archive/chd.rs", # Hard to test CHD decompression without actual files.
+
+  # Map mode bounds (< to <=) is theoretically impossible to trigger without invalid ROMs.
+  ".*replace < with <= in analyze_snes_data",
+  # Header offset (-) would cause negative offsets, making tests unrealistic and mutations unviable.
+  ".*replace \\+ with - in analyze_snes_data",
+
+  # Functionally equivalent bitmasks (Region related.)
+  ".*replace \\| with \\^ in infer_region_from_filename",
+  ".*replace \\| with \\^ in map_region",
+
+  # Logging related.
+  ".*replace \\|\\| with && in analyze_genesis_data",
+  ".*replace == with != in analyze_genesis_data",
+  ".*delete ! in analyze_genesis_data",
+  ".*replace && with \\|\\| in analyze_segacd_data",
+  ".*replace != with == in analyze_segacd_data",
+]

@@ -74,6 +74,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
+    fn test_description_trait() {
+        let error_msg = "Description test";
+        let err = RomAnalyzerError::new(error_msg);
+        assert_eq!(err.description(), error_msg);
+    }
+
+    #[test]
     fn test_from_zip_error() {
         let zip_err = ZipError::FileNotFound;
         let zip_err_display = format!("{}", zip_err);
