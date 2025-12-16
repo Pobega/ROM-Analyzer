@@ -141,9 +141,11 @@ mod tests {
     #[test]
     fn test_process_zip_file_with_supported_rom() {
         let expected_filename = "game.nes";
-        let expected_data = b"NES ROM DATA\0\0\0\0";
+        // Create data larger than 1152 bytes but smaller than 128KB to test size limits
+        let mut expected_data = vec![0u8; 2000];
+        expected_data[0..12].copy_from_slice(b"NES ROM DATA");
 
-        let zip_path = create_zip_file(expected_filename, expected_data)
+        let zip_path = create_zip_file(expected_filename, &expected_data)
             .expect("Failed to create test zip file");
         let zip_file = File::open(&zip_path.path).expect("Failed to open zip for reading");
 

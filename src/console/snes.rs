@@ -364,6 +364,15 @@ mod tests {
         assert_eq!(analysis.region_code, 0x00);
         assert_eq!(analysis.region, Region::JAPAN);
         assert_eq!(analysis.region_string, "Japan (NTSC)");
+        assert_eq!(
+            analysis.print(),
+            "test_lorom_jp.sfc\n\
+             System:       Super Nintendo (SNES)\n\
+             Game Title:   TEST GAME TITLE\n\
+             Mapping:      LoROM (Map Mode Unverified)\n\
+             Region Code:  0x00\n\
+             Region:       Japan"
+        );
         Ok(())
     }
 
@@ -433,49 +442,60 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_snes_data_invalid_checksum() -> Result<(), Box<dyn Error>> {
-        // FIX: Use the robust helper to generate a correctly formatted header first.
-        let mut data = generate_snes_header(
-            0x8000, // 32KB is enough for LoROM
-            0,
-            0x01,               // USA region code
-            false,              // LoROM base
-            "INVALID CHECKSUM", // Title to assert on
-            None,
-        );
+    fn test_analyze_snes_data_lorom_indonesia() -> Result<(), Box<dyn Error>> {
+        let data = generate_snes_header(0x80000, 0, 0x0C, false, "TEST GAME TITLE", None); // LoROM, Indonesia
+        let analysis = analyze_snes_data(&data, "test_lorom_indonesia.sfc")?;
 
-        // Manually invalidate the checksum/complement pair.
-        // LoROM header start is 0x7FC0. Checksum area starts at 0x7FC0 + 0x1C.
-        let checksum_start = 0x7FC0 + 0x1C;
-
-        // Overwrite the 4 bytes of checksum/complement with invalid data (e.g., all zeros)
-        data[checksum_start..checksum_start + 4].copy_from_slice(&[0x00, 0x00, 0x00, 0x00]);
-
-        let analysis = analyze_snes_data(&data, "test_invalid_checksum.sfc")?;
-
-        assert_eq!(analysis.source_name, "test_invalid_checksum.sfc");
-        assert_eq!(analysis.game_title, "INVALID CHECKSUM");
-        assert_eq!(analysis.mapping_type, "LoROM (Unverified)"); // Expecting fallback
-        assert_eq!(analysis.region_code, 0x01);
-        assert_eq!(analysis.region, Region::USA);
-        assert_eq!(analysis.region_string, "USA / Canada (NTSC)");
+        assert_eq!(analysis.source_name, "test_lorom_indonesia.sfc");
+        assert_eq!(analysis.game_title, "TEST GAME TITLE");
+        assert_eq!(analysis.mapping_type, "LoROM (Map Mode Unverified)");
+        assert_eq!(analysis.region_code, 0x0C);
+        assert_eq!(analysis.region, Region::EUROPE | Region::ASIA);
+        assert_eq!(analysis.region_string, "Indonesia (PAL)");
         Ok(())
     }
 
     #[test]
-    fn test_analyze_snes_data_too_small() {
-        // Test with data smaller than the minimum required size for header analysis.
-        // The minimal size depends on mapping type and copier header. For LoROM without copier header,
-        // it's header_start + 0x20 = 0x7FFC + 0x20 = 0x801C bytes.
-        let data = vec![0; 0x1000]; // Significantly smaller than required.
-        let result = analyze_snes_data(&data, "too_small.sfc");
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("too small or header is invalid")
+    fn test_analyze_snes_data_lorom_common() -> Result<(), Box<dyn Error>> {
+        let data = generate_snes_header(0x80000, 0, 0x0E, false, "TEST GAME TITLE", None); // LoROM, Common
+        let analysis = analyze_snes_data(&data, "test_lorom_common.sfc")?;
+
+        assert_eq!(analysis.source_name, "test_lorom_common.sfc");
+        assert_eq!(analysis.game_title, "TEST GAME TITLE");
+        assert_eq!(analysis.mapping_type, "LoROM (Map Mode Unverified)");
+        assert_eq!(analysis.region_code, 0x0E);
+        assert_eq!(
+            analysis.region,
+            Region::USA | Region::EUROPE | Region::JAPAN | Region::ASIA
         );
+        assert_eq!(analysis.region_string, "Common / International");
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_snes_data_minimal_lorom_size() -> Result<(), Box<dyn Error>> {
+        // Minimal size for LoROM: header at 0x7FC0, needs up to 0x7FE0 for checksum.
+        let data = generate_snes_header(0x7FE0, 0, 0x00, false, "MINIMAL", None);
+        let analysis = analyze_snes_data(&data, "minimal_lorom.sfc")?;
+        assert_eq!(analysis.mapping_type, "LoROM (Map Mode Unverified)");
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_snes_checksum_minimal_size() {
+        // Test with data exactly the size needed for LoROM checksum validation.
+        // LoROM header starts at 0x7FC0, needs up to 0x7FE0 (0x7FC0 + 0x20).
+        let mut data = vec![0; 0x7FE0];
+        // Set valid checksum: complement 0x5555, checksum 0xAAAA (0xFFFF - 0x5555)
+        data[0x7FC0 + 0x1C..0x7FC0 + 0x1E].copy_from_slice(&0x5555u16.to_le_bytes());
+        data[0x7FC0 + 0x1E..0x7FC0 + 0x20].copy_from_slice(&0xAAAAu16.to_le_bytes());
+        assert!(validate_snes_checksum(&data, 0x7FC0));
+    }
+
+    #[test]
+    fn test_validate_snes_checksum_too_small() {
+        let data = vec![0; 0x7FC0 + 0x1F]; // One byte short
+        assert!(!validate_snes_checksum(&data, 0x7FC0));
     }
 
     #[test]
@@ -581,5 +601,47 @@ mod tests {
 
         assert_eq!(analysis.mapping_type, "LoROM (Unverified)"); // Expect fallback
         Ok(())
+    }
+
+    #[test]
+    fn test_map_region_all_codes() {
+        // Test all known region codes to catch "delete match arm" mutations
+        let test_cases = vec![
+            (0x00, "Japan (NTSC)", Region::JAPAN),
+            (0x01, "USA / Canada (NTSC)", Region::USA),
+            (
+                0x02,
+                "Europe / Oceania / Asia (PAL)",
+                Region::EUROPE | Region::ASIA,
+            ),
+            (0x03, "Sweden / Scandinavia (PAL)", Region::EUROPE),
+            (0x04, "Finland (PAL)", Region::EUROPE),
+            (0x05, "Denmark (PAL)", Region::EUROPE),
+            (0x06, "France (PAL)", Region::EUROPE),
+            (0x07, "Netherlands (PAL)", Region::EUROPE),
+            (0x08, "Spain (PAL)", Region::EUROPE),
+            (0x09, "Germany (PAL)", Region::EUROPE),
+            (0x0A, "Italy (PAL)", Region::EUROPE),
+            (0x0B, "China (PAL)", Region::CHINA),
+            (0x0C, "Indonesia (PAL)", Region::EUROPE | Region::ASIA),
+            (0x0D, "South Korea (NTSC)", Region::KOREA),
+            (
+                0x0E,
+                "Common / International",
+                Region::USA | Region::EUROPE | Region::JAPAN | Region::ASIA,
+            ),
+            (0x0F, "Canada (NTSC)", Region::USA),
+            (0x10, "Brazil (NTSC)", Region::USA),
+            (0x11, "Australia (PAL)", Region::EUROPE),
+            (0x12, "Other (Variation 1)", Region::UNKNOWN),
+            (0x13, "Other (Variation 2)", Region::UNKNOWN),
+            (0x14, "Other (Variation 3)", Region::UNKNOWN),
+            (0xFF, "Unknown", Region::UNKNOWN),
+        ];
+        for (code, expected_name, expected_region) in test_cases {
+            let (name, region) = map_region(code);
+            assert_eq!(name, expected_name, "Failed for code 0x{:02X}", code);
+            assert_eq!(region, expected_region, "Failed for code 0x{:02X}", code);
+        }
     }
 }

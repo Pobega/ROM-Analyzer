@@ -337,6 +337,9 @@ impl RomAnalysisResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+    use tempfile::tempdir;
+    use zip::write::{FileOptions, ZipWriter};
 
     #[test]
     fn test_get_rom_file_type() {
@@ -388,6 +391,19 @@ mod tests {
         assert!(result.is_err());
         let err = result.expect_err("process_rom_data should have returned an error for mock data");
         assert!(!err.to_string().contains("Unrecognized ROM file extension"));
+        assert!(!err.to_string().contains("PSX"));
+    }
+
+    #[test]
+    fn test_process_rom_data_cd_system_sega_genesis_header_genesis() {
+        let mut data = vec![0; 0x120];
+        data[0x100..0x110].copy_from_slice(b"SEGA GENESIS    ");
+        let name = "game.bin";
+        let result = process_rom_data(data, name);
+        assert!(result.is_err());
+        let err = result.expect_err("process_rom_data should have returned an error for mock data");
+        assert!(!err.to_string().contains("Unrecognized ROM file extension"));
+        assert!(!err.to_string().contains("PSX"));
     }
 
     #[test]
@@ -407,5 +423,34 @@ mod tests {
         let result = process_rom_data(data, name);
         let err = result.expect_err("process_rom_data should have returned an error for mock data");
         assert!(!err.to_string().contains("Unrecognized ROM file extension"));
+    }
+
+    #[test]
+    fn test_analyze_rom_data_zip() {
+        let dir = tempdir().unwrap();
+        let zip_path = dir.path().join("test.zip");
+        let zip_file = File::create(&zip_path).unwrap();
+        let mut zip = ZipWriter::new(zip_file);
+        zip.start_file("game.nes", FileOptions::default()).unwrap();
+        zip.write_all(b"NES ROM DATA").unwrap();
+        zip.finish().unwrap();
+        let zip_path_str = zip_path.to_str().unwrap();
+        let result = analyze_rom_data(zip_path_str);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(!err.to_string().contains("Unrecognized ROM file extension"));
+    }
+
+    #[test]
+    fn test_analyze_rom_data_chd() {
+        let dir = tempdir().unwrap();
+        let chd_path = dir.path().join("test.chd");
+        std::fs::write(&chd_path, b"invalid chd data").unwrap();
+        let chd_path_str = chd_path.to_str().unwrap();
+        let result = analyze_rom_data(chd_path_str);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(!err.to_string().contains("Unrecognized ROM file extension"));
+        assert!(!err.to_string().contains("PSX"));
     }
 }

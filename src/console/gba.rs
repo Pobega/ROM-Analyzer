@@ -203,20 +203,38 @@ mod tests {
         assert_eq!(analysis.maker_code, "XX");
         assert_eq!(analysis.region, Region::JAPAN);
         assert_eq!(analysis.region_string, "Japan");
+        assert_eq!(
+            analysis.print(),
+            "test_rom_jp.gba\n\
+             System:       Game Boy Advance (GBA)\n\
+             Game Title:   GBA JP GAME\n\
+             Game Code:    ABCD\n\
+             Maker Code:   XX\n\
+             Region:       Japan"
+        );
         Ok(())
     }
 
     #[test]
-    fn test_analyze_gba_data_usa_code() -> Result<(), Box<dyn Error>> {
-        let data = generate_gba_header("EFGH", "YY", 0x01, "GBA US GAME"); // USA region code 0x01
-        let analysis = analyze_gba_data(&data, "test_rom_us.gba")?;
+    fn test_analyze_gba_data_pal_char() -> Result<(), Box<dyn Error>> {
+        let data = generate_gba_header("YZAB", "DD", b'P', "GBA PAL GAME"); // PAL region char 'P'
+        let analysis = analyze_gba_data(&data, "test_rom_pal.gba")?;
 
-        assert_eq!(analysis.source_name, "test_rom_us.gba");
-        assert_eq!(analysis.game_title, "GBA US GAME");
-        assert_eq!(analysis.game_code, "EFGH");
-        assert_eq!(analysis.maker_code, "YY");
-        assert_eq!(analysis.region, Region::USA);
-        assert_eq!(analysis.region_string, "USA");
+        assert_eq!(analysis.source_name, "test_rom_pal.gba");
+        assert_eq!(analysis.game_title, "GBA PAL GAME");
+        assert_eq!(analysis.game_code, "YZAB");
+        assert_eq!(analysis.maker_code, "DD");
+        assert_eq!(analysis.region, Region::EUROPE);
+        assert_eq!(analysis.region_string, "Europe");
+        assert_eq!(
+            analysis.print(),
+            "test_rom_pal.gba\n\
+             System:       Game Boy Advance (GBA)\n\
+             Game Title:   GBA PAL GAME\n\
+             Game Code:    YZAB\n\
+             Maker Code:   DD\n\
+             Region:       Europe"
+        );
         Ok(())
     }
 
@@ -249,13 +267,25 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gba_data_unknown_code() -> Result<(), Box<dyn Error>> {
-        let data = generate_gba_header("QRST", "BB", 0xFF, "GBA UNKNOWN"); // Unknown region code
-        let analysis = analyze_gba_data(&data, "test_rom_unknown.gba")?;
+    fn test_analyze_gba_data_usa_char() -> Result<(), Box<dyn Error>> {
+        let data = generate_gba_header("UVWX", "CC", b'U', "GBA US CHAR"); // USA region char 'U'
+        let analysis = analyze_gba_data(&data, "test_rom_us_char.gba")?;
 
-        assert_eq!(analysis.source_name, "test_rom_unknown.gba");
-        assert_eq!(analysis.region, Region::UNKNOWN);
-        assert_eq!(analysis.region_string, "Unknown");
+        assert_eq!(analysis.source_name, "test_rom_us_char.gba");
+        assert_eq!(analysis.game_title, "GBA US CHAR");
+        assert_eq!(analysis.game_code, "UVWX");
+        assert_eq!(analysis.maker_code, "CC");
+        assert_eq!(analysis.region, Region::USA);
+        assert_eq!(analysis.region_string, "USA");
+        assert_eq!(
+            analysis.print(),
+            "test_rom_us_char.gba\n\
+             System:       Game Boy Advance (GBA)\n\
+             Game Title:   GBA US CHAR\n\
+             Game Code:    UVWX\n\
+             Maker Code:   CC\n\
+             Region:       USA"
+        );
         Ok(())
     }
 

@@ -196,6 +196,14 @@ mod tests {
         assert_eq!(analysis.region_code, 0x40);
         assert_eq!(analysis.region, Region::JAPAN);
         assert_eq!(analysis.region_string, "Japan (NTSC-J)");
+        assert_eq!(
+            analysis.print(),
+            "test_rom_jp.iso\n\
+             System:       Sega CD / Mega CD\n\
+             Signature:    SEGA CD\n\
+             Region Code:  0x40\n\
+             Region:       Japan"
+        );
         Ok(())
     }
 

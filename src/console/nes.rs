@@ -217,6 +217,13 @@ mod tests {
         assert_eq!(analysis.region_string, "NTSC (USA/Japan)");
         assert!(!analysis.is_nes2_format);
         assert_eq!(analysis.region_byte_value, 0x00);
+        assert_eq!(
+            analysis.print(),
+            "test_rom_ntsc.nes\n\
+             System:       Nintendo Entertainment System (NES)\n\
+             Region:       Japan/USA\n\
+             iNES Flag 9:  0x00"
+        );
         Ok(())
     }
 
@@ -245,6 +252,13 @@ mod tests {
         assert_eq!(analysis.region_string, "NTSC (USA/Japan)");
         assert!(analysis.is_nes2_format);
         assert_eq!(analysis.region_byte_value, 0x00);
+        assert_eq!(
+            analysis.print(),
+            "test_rom_nes2_ntsc.nes\n\
+             System:       Nintendo Entertainment System (NES)\n\
+             Region:       Japan/USA\n\
+             NES2.0 Flag 12: 0x00"
+        );
         Ok(())
     }
 
@@ -276,6 +290,13 @@ mod tests {
         assert_eq!(analysis.region_string, "Multi-region");
         assert!(analysis.is_nes2_format);
         assert_eq!(analysis.region_byte_value, 0x02);
+        assert_eq!(
+            analysis.print(),
+            "test_rom_nes2_world.nes\n\
+             System:       Nintendo Entertainment System (NES)\n\
+             Region:       Japan/USA/Europe\n\
+             NES2.0 Flag 12: 0x02"
+        );
         Ok(())
     }
 

@@ -197,6 +197,14 @@ mod tests {
         assert_eq!(analysis.destination_code, 0x00);
         assert_eq!(analysis.region, Region::JAPAN);
         assert_eq!(analysis.region_string, "Japan");
+        assert_eq!(
+            analysis.print(),
+            "test_rom_jp.gb\n\
+             System:       Game Boy (GB)\n\
+             Game Title:   GAMETITLE\n\
+             Region Code:  0x00\n\
+             Region:       Japan"
+        );
         Ok(())
     }
 
@@ -211,6 +219,14 @@ mod tests {
         assert_eq!(analysis.destination_code, 0x01);
         assert_eq!(analysis.region, Region::USA | Region::EUROPE);
         assert_eq!(analysis.region_string, "Non-Japan (International)");
+        assert_eq!(
+            analysis.print(),
+            "test_rom_us.gb\n\
+             System:       Game Boy (GB)\n\
+             Game Title:   GAMETITLE\n\
+             Region Code:  0x01\n\
+             Region:       USA/Europe"
+        );
         Ok(())
     }
 

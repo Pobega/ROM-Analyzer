@@ -207,6 +207,12 @@ mod tests {
         assert_eq!(analysis.region, Region::JAPAN);
         assert_eq!(analysis.region_string, "GameGear Japan");
         assert!(analysis.region_found);
+        assert_eq!(
+            analysis.print(),
+            "test_rom.gg\n\
+             System:       Sega Game Gear\n\
+             Region:       Japan"
+        );
         Ok(())
     }
 
@@ -219,6 +225,12 @@ mod tests {
         assert_eq!(analysis.region, Region::USA | Region::EUROPE);
         assert_eq!(analysis.region_string, "GameGear Export");
         assert!(analysis.region_found);
+        assert_eq!(
+            analysis.print(),
+            "test_rom.gg\n\
+             System:       Sega Game Gear\n\
+             Region:       USA/Europe"
+        );
         Ok(())
     }
 
@@ -242,6 +254,13 @@ mod tests {
         assert_eq!(analysis.region, Region::USA);
         assert_eq!(analysis.region_string, "USA");
         assert!(!analysis.region_found);
+        assert_eq!(
+            analysis.print(),
+            "my_game_usa.gg\n\
+             System:       Sega Game Gear\n\
+             Region:       USA\n\
+             Note:         Region information not in ROM header, inferred from filename."
+        );
         Ok(())
     }
 

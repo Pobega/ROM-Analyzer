@@ -168,6 +168,13 @@ mod tests {
         assert_eq!(analysis.region, Region::USA);
         assert_eq!(analysis.region_string, "North America (NTSC-U)");
         assert_eq!(analysis.code, "SLUS");
+        assert_eq!(
+            analysis.print(),
+            "test_rom_us.iso\n\
+             System:       Sony PlayStation (PSX)\n\
+             Region:       USA\n\
+             Code:         SLUS"
+        );
         Ok(())
     }
 
@@ -207,6 +214,14 @@ mod tests {
         assert_eq!(analysis.region, Region::UNKNOWN);
         assert_eq!(analysis.region_string, "Unknown");
         assert_eq!(analysis.code, "N/A");
+        assert_eq!(
+            analysis.print(),
+            "test_rom.iso\n\
+             System:       Sony PlayStation (PSX)\n\
+             Region:       Unknown\n\
+             Code:         N/A\n\
+             Note: Executable prefix (SLUS/SLES/SLPS) not found in header area. Requires main data track (.bin or .iso)."
+        );
         Ok(())
     }
 

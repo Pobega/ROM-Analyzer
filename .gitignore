@@ -12,3 +12,6 @@
 *.bak
 *.swp
 *.swo
+
+# Cargo mutants
+/mutants*
