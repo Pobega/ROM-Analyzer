@@ -30,6 +30,8 @@ pub enum RomAnalyzerError {
     ZipError(ZipError),
     /// CHD archive operation failed
     ChdError(chd::Error),
+    /// File not found
+    FileNotFound(String),
     /// Generic error with custom message
     Generic(String),
 }
@@ -71,6 +73,7 @@ impl fmt::Display for RomAnalyzerError {
             RomAnalyzerError::IoError(err) => write!(f, "IO error: {}", err),
             RomAnalyzerError::ZipError(err) => write!(f, "ZIP error: {}", err),
             RomAnalyzerError::ChdError(err) => write!(f, "CHD error: {}", err),
+            RomAnalyzerError::FileNotFound(path) => write!(f, "File not found: {}", path),
             RomAnalyzerError::Generic(msg) => write!(f, "{}", msg),
         }
     }
@@ -150,6 +153,12 @@ mod tests {
     }
 
     #[test]
+    fn test_display_file_not_found() {
+        let err = RomAnalyzerError::FileNotFound("test.nes".to_string());
+        assert_eq!(format!("{}", err), "File not found: test.nes");
+    }
+
+    #[test]
     fn test_from_zip_error() {
         let zip_err = ZipError::FileNotFound;
         let zip_err_display = format!("{}", zip_err);
@@ -201,6 +210,9 @@ mod tests {
         assert!(rom_err.source().is_none());
 
         let rom_err = RomAnalyzerError::InvalidHeader("test".to_string());
+        assert!(rom_err.source().is_none());
+
+        let rom_err = RomAnalyzerError::FileNotFound("test".to_string());
         assert!(rom_err.source().is_none());
     }
 
