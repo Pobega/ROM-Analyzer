@@ -4,7 +4,6 @@
 //! supported ROM files based on their file extensions. It then extracts the
 //! raw byte data of the first supported ROM found within the archive.
 
-use std::error::Error;
 use std::fs::File;
 use std::io::Read;
 
@@ -36,14 +35,14 @@ const MAX_ROM_SIZE: u64 = 128 * 1024;
 /// A `Result` which is:
 /// - `Ok((Vec<u8>, String))` containing the raw byte data of the extracted ROM
 ///   and its original filename within the archive.
-/// - `Err(Box<dyn Error>)` if:
+/// - `Err`([`RomAnalyzerError`]) if:
 ///   - The ZIP archive is invalid or corrupted.
 ///   - An I/O error occurs during reading.
 ///   - No supported ROM files are found within the archive.
 pub fn process_zip_file(
     file: File,
     original_filename: &str,
-) -> Result<(Vec<u8>, String), Box<dyn Error>> {
+) -> Result<(Vec<u8>, String), RomAnalyzerError> {
     let mut archive = ZipArchive::new(file)?;
 
     debug!("[+] Analyzing ZIP archive: {}", original_filename);
@@ -72,10 +71,10 @@ pub fn process_zip_file(
         }
     }
 
-    Err(Box::new(RomAnalyzerError::new(&format!(
+    Err(RomAnalyzerError::ArchiveError(format!(
         "No supported ROM files found within the zip archive: {}",
         original_filename
-    ))))
+    )))
 }
 
 #[cfg(test)]
@@ -94,7 +93,7 @@ mod tests {
     }
 
     /// Test helper function to create a temporary Zip file for testing.
-    fn create_zip_file(filename: &str, file_contents: &[u8]) -> Result<TestZip, Box<dyn Error>> {
+    fn create_zip_file(filename: &str, file_contents: &[u8]) -> Result<TestZip, RomAnalyzerError> {
         let dir = tempdir()?;
         let zip_path = dir.path().join("test.zip");
         let zip_file = File::create(&zip_path)?;
@@ -128,14 +127,14 @@ mod tests {
 
         assert!(result.is_err());
         let error = result.unwrap_err();
-        let rom_analyzer_err = error
-            .downcast_ref::<RomAnalyzerError>()
-            .expect("Error should be a RomAnalyzerError");
-        assert!(
-            rom_analyzer_err
-                .to_string()
-                .starts_with("No supported ROM files found within the zip archive")
-        );
+        match error {
+            RomAnalyzerError::ArchiveError(_) => {
+                assert!(format!("{}", error).starts_with(
+                    "Archive error: No supported ROM files found within the zip archive"
+                ))
+            }
+            _ => panic!("Expected ArchiveError variant"),
+        }
     }
 
     #[test]

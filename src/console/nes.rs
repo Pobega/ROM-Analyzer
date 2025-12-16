@@ -7,8 +7,6 @@
 //! <https://www.nesdev.org/wiki/INES>
 //! <https://www.nesdev.org/wiki/NES_2.0>
 
-use std::error::Error;
-
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
@@ -132,21 +130,22 @@ pub fn map_region(region_byte: u8, nes2_format: bool) -> (&'static str, Region) 
 ///
 /// A `Result` which is:
 /// - `Ok`([`NesAnalysis`]) containing the detailed analysis results.
-/// - `Err(Box<dyn Error>)` if the ROM data is too small or has an invalid iNES signature.
-pub fn analyze_nes_data(data: &[u8], source_name: &str) -> Result<NesAnalysis, Box<dyn Error>> {
+/// - `Err`([`RomAnalyzerError`]) if the ROM data is too small or has an invalid iNES signature.
+pub fn analyze_nes_data(data: &[u8], source_name: &str) -> Result<NesAnalysis, RomAnalyzerError> {
     if data.len() < 16 {
-        return Err(Box::new(RomAnalyzerError::new(&format!(
-            "ROM data is too small to contain an iNES header (size: {} bytes).",
-            data.len()
-        ))));
+        return Err(RomAnalyzerError::DataTooSmall {
+            file_size: data.len(),
+            required_size: 16,
+            details: "iNES header".to_string(),
+        });
     }
 
     // All headered NES ROMs should begin with 'NES<EOF>'
     let signature = &data[0..4];
     if signature != b"NES\x1a" {
-        return Err(Box::new(RomAnalyzerError::new(
-            "Invalid iNES header signature. Not a valid NES ROM.",
-        )));
+        return Err(RomAnalyzerError::InvalidHeader(
+            "Invalid iNES header signature. Not a valid NES ROM.".to_string(),
+        ));
     }
 
     let mut region_byte_val = data[INES_REGION_BYTE];
@@ -172,7 +171,6 @@ pub fn analyze_nes_data(data: &[u8], source_name: &str) -> Result<NesAnalysis, B
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::error::Error;
 
     // Helper enum to specify header type for generation.
     enum NesHeaderType {
@@ -207,7 +205,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_ines_data_ntsc() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_ines_data_ntsc() -> Result<(), RomAnalyzerError> {
         // iNES format, NTSC region (LSB is 0)
         let data = generate_nes_header(NesHeaderType::Ines, 0x00);
         let analysis = analyze_nes_data(&data, "test_rom_ntsc.nes")?;
@@ -228,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_ines_data_pal() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_ines_data_pal() -> Result<(), RomAnalyzerError> {
         // iNES format, PAL region (LSB is 1)
         let data = generate_nes_header(NesHeaderType::Ines, 0x01);
         let analysis = analyze_nes_data(&data, "test_rom_pal.nes")?;
@@ -242,7 +240,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_nes2_data_ntsc() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_nes2_data_ntsc() -> Result<(), RomAnalyzerError> {
         // NES 2.0 format, NTSC region (value 0)
         let data = generate_nes_header(NesHeaderType::Nes2, 0x00);
         let analysis = analyze_nes_data(&data, "test_rom_nes2_ntsc.nes")?;
@@ -263,7 +261,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_nes2_data_pal() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_nes2_data_pal() -> Result<(), RomAnalyzerError> {
         // NES 2.0 format, PAL region (value 1)
         let data = generate_nes_header(NesHeaderType::Nes2, 0x01);
         let analysis = analyze_nes_data(&data, "test_rom_nes2_pal.nes")?;
@@ -277,7 +275,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_nes2_data_world() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_nes2_data_world() -> Result<(), RomAnalyzerError> {
         // NES 2.0 format, Multi-region (value 2)
         let data = generate_nes_header(NesHeaderType::Nes2, 0x02);
         let analysis = analyze_nes_data(&data, "test_rom_nes2_world.nes")?;
@@ -301,7 +299,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_nes2_data_dendy() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_nes2_data_dendy() -> Result<(), RomAnalyzerError> {
         // NES 2.0 format, Dendy (Russia) (value 3)
         let data = generate_nes_header(NesHeaderType::Nes2, 0x03);
         let analysis = analyze_nes_data(&data, "test_rom_nes2_dendy.nes")?;

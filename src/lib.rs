@@ -14,7 +14,6 @@ pub mod console;
 pub mod error;
 pub mod region;
 
-use std::error::Error;
 use std::fs::{self, File};
 use std::path::Path;
 
@@ -171,8 +170,8 @@ pub fn get_rom_file_type(name: &str) -> RomFileType {
 /// # Returns
 ///
 /// A `Result` containing either a [`RomAnalysisResult`] with the analysis data
-/// or a `Box<dyn Error>`.
-fn process_rom_data(data: Vec<u8>, rom_path: &str) -> Result<RomAnalysisResult, Box<dyn Error>> {
+/// or a [`RomAnalyzerError`].
+fn process_rom_data(data: Vec<u8>, rom_path: &str) -> Result<RomAnalysisResult, RomAnalyzerError> {
     match get_rom_file_type(rom_path) {
         RomFileType::Nes => nes::analyze_nes_data(&data, rom_path).map(RomAnalysisResult::NES),
         RomFileType::Snes => snes::analyze_snes_data(&data, rom_path).map(RomAnalysisResult::SNES),
@@ -216,11 +215,10 @@ fn process_rom_data(data: Vec<u8>, rom_path: &str) -> Result<RomAnalysisResult, 
                 psx::analyze_psx_data(&data, rom_path).map(RomAnalysisResult::PSX)
             }
         }
-        RomFileType::Unknown => Err(Box::new(RomAnalyzerError::new(&format!(
+        RomFileType::Unknown => Err(RomAnalyzerError::UnsupportedFormat(format!(
             "Unrecognized ROM file extension for dispatch: {}",
             rom_path
-        )))
-        .into()),
+        ))),
     }
 }
 
@@ -238,7 +236,7 @@ fn process_rom_data(data: Vec<u8>, rom_path: &str) -> Result<RomAnalysisResult, 
 /// # Returns
 ///
 /// A `Result` containing either a [`RomAnalysisResult`] with the analysis data
-/// or a `Box<dyn Error>`.
+/// or a [`RomAnalyzerError`].
 ///
 /// # Examples
 ///
@@ -251,7 +249,7 @@ fn process_rom_data(data: Vec<u8>, rom_path: &str) -> Result<RomAnalysisResult, 
 ///     Err(e) => eprintln!("Error analyzing ROM: {}", e),
 /// }
 /// ```
-pub fn analyze_rom_data(file_path: &str) -> Result<RomAnalysisResult, Box<dyn Error>> {
+pub fn analyze_rom_data(file_path: &str) -> Result<RomAnalysisResult, RomAnalyzerError> {
     match get_file_extension_lowercase(file_path).as_str() {
         "zip" => {
             let file = File::open(file_path)?;

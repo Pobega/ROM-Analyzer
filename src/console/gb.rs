@@ -6,8 +6,6 @@
 //! Gameboy/Color header documentation referenced here:
 //! <https://gbdev.io/pandocs/The_Cartridge_Header.html>
 
-use std::error::Error;
-
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
@@ -110,17 +108,17 @@ pub fn map_region(region_byte: u8) -> (&'static str, Region) {
 ///
 /// A `Result` which is:
 /// - `Ok`([`GbAnalysis`]) containing the detailed analysis results.
-/// - `Err(Box<dyn Error>)` if the ROM data is too small to contain a valid header.
-pub fn analyze_gb_data(data: &[u8], source_name: &str) -> Result<GbAnalysis, Box<dyn Error>> {
+/// - `Err`([`RomAnalyzerError`]) if the ROM data is too small to contain a valid header.
+pub fn analyze_gb_data(data: &[u8], source_name: &str) -> Result<GbAnalysis, RomAnalyzerError> {
     // The Game Boy header is located at offset 0x100.
     // The relevant information for region and system type are within the first 0x150 bytes.
     const HEADER_SIZE: usize = 0x150;
     if data.len() < HEADER_SIZE {
-        return Err(Box::new(RomAnalyzerError::new(&format!(
-            "ROM data is too small to contain a Game Boy header (size: {} bytes, requires at least {} bytes).",
-            data.len(),
-            HEADER_SIZE
-        ))));
+        return Err(RomAnalyzerError::DataTooSmall {
+            file_size: data.len(),
+            required_size: HEADER_SIZE,
+            details: "Game Boy header".to_string(),
+        });
     }
 
     // System type is determined by a specific byte in the header.
@@ -159,7 +157,6 @@ pub fn analyze_gb_data(data: &[u8], source_name: &str) -> Result<GbAnalysis, Box
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::error::Error;
 
     /// Helper function to generate a minimal Game Boy header for testing.
     fn generate_gb_header(destination_code: u8, system_byte: u8, title: &str) -> Vec<u8> {
@@ -187,7 +184,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gb_data_japan() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gb_data_japan() -> Result<(), RomAnalyzerError> {
         let data = generate_gb_header(0x00, 0x00, "GAMETITLE"); // Japan, GB
         let analysis = analyze_gb_data(&data, "test_rom_jp.gb")?;
 
@@ -209,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gb_data_non_japan() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gb_data_non_japan() -> Result<(), RomAnalyzerError> {
         let data = generate_gb_header(0x01, 0x00, "GAMETITLE"); // Non-Japan, GB
         let analysis = analyze_gb_data(&data, "test_rom_us.gb")?;
 
@@ -231,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gbc_data_japan() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gbc_data_japan() -> Result<(), RomAnalyzerError> {
         let data = generate_gb_header(0x00, 0x80, "GBC TITLE"); // Japan, GBC
         let analysis = analyze_gb_data(&data, "test_rom_jp.gbc")?;
 
@@ -245,7 +242,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gbc_data_non_japan() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gbc_data_non_japan() -> Result<(), RomAnalyzerError> {
         let data = generate_gb_header(0x01, 0xC0, "GBC TITLE"); // Non-Japan, GBC (using 0xC0 for system byte)
         let analysis = analyze_gb_data(&data, "test_rom_eur.gbc")?;
 
@@ -261,7 +258,7 @@ mod tests {
     // GB uses 15 bits for title name while GBC uses 11
     // Test that we properly read longer title names
     #[test]
-    fn test_analyze_gb_long_title() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gb_long_title() -> Result<(), RomAnalyzerError> {
         let data = generate_gb_header(0x00, 0x00, "LOOOOOONG TITLE"); // Japan, GB
         let analysis = analyze_gb_data(&data, "test_rom_jp.gbc")?;
 
@@ -275,7 +272,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gbc_long_title() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gbc_long_title() -> Result<(), RomAnalyzerError> {
         let data = generate_gb_header(0x00, 0x80, "LOONG TITLE"); // Japan, GB
         let analysis = analyze_gb_data(&data, "test_rom_jp.gbc")?;
 
@@ -289,7 +286,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_gb_unknown_code() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_gb_unknown_code() -> Result<(), RomAnalyzerError> {
         let data = generate_gb_header(0x02, 0x00, "UNKNOWN REG"); // Unknown region code
         let analysis = analyze_gb_data(&data, "test_rom_unknown.gb")?;
 

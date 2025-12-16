@@ -109,7 +109,6 @@ pub fn infer_region_from_filename(name: &str) -> Region {
     REGION_PATTERNS
         .iter()
         .fold(Region::UNKNOWN, |acc, (patterns, flag)| {
-            // mutants skip: functionally equivalent mutation (^ instead of |)
             if patterns.iter().any(|pattern| upper_name.contains(*pattern)) {
                 acc | *flag
             } else {

@@ -5,8 +5,6 @@
 //! SegaCD header documentation referenced here:
 //! <https://segaretro.org/ROM_header>
 
-use std::error::Error;
-
 use log::error;
 use serde::Serialize;
 
@@ -112,20 +110,20 @@ pub fn map_region(region_byte: u8) -> (&'static str, Region) {
 ///
 /// A `Result` which is:
 /// - `Ok`([`SegaCdAnalysis`]) containing the detailed analysis results.
-/// - `Err(Box<dyn Error>)` if the ROM data is too small to contain a valid Sega CD header.
+/// - `Err`([`RomAnalyzerError`]) if the ROM data is too small to contain a valid Sega CD header.
 pub fn analyze_segacd_data(
     data: &[u8],
     source_name: &str,
-) -> Result<SegaCdAnalysis, Box<dyn Error>> {
+) -> Result<SegaCdAnalysis, RomAnalyzerError> {
     // The Sega CD boot program header information is typically found early in the file.
     // A common minimum size to check for the signature and region byte is 0x200 bytes.
     const REQUIRED_SIZE: usize = 0x200;
     if data.len() < REQUIRED_SIZE {
-        return Err(Box::new(RomAnalyzerError::new(&format!(
-            "Sega CD boot file too small (size: {} bytes, requires at least {} bytes).",
-            data.len(),
-            REQUIRED_SIZE
-        ))));
+        return Err(RomAnalyzerError::DataTooSmall {
+            file_size: data.len(),
+            required_size: REQUIRED_SIZE,
+            details: "Sega CD boot file header".to_string(),
+        });
     }
 
     // Extract the signature from the boot program (typically at offset 0x100).
@@ -165,7 +163,6 @@ pub fn analyze_segacd_data(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::error::Error;
 
     /// Helper function to generate a minimal Sega CD boot file header for testing.
     fn generate_segacd_header(signature_str: &str, region_byte: u8) -> Vec<u8> {
@@ -187,7 +184,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_segacd_data_japan() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_segacd_data_japan() -> Result<(), RomAnalyzerError> {
         let data = generate_segacd_header("SEGA CD", 0x40); // Japan region
         let analysis = analyze_segacd_data(&data, "test_rom_jp.iso")?;
 
@@ -208,7 +205,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_segacd_data_europe() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_segacd_data_europe() -> Result<(), RomAnalyzerError> {
         let data = generate_segacd_header("SEGA CD", 0x80); // Europe region
         let analysis = analyze_segacd_data(&data, "test_rom_eur.iso")?;
 
@@ -221,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_segacd_data_usa() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_segacd_data_usa() -> Result<(), RomAnalyzerError> {
         let data = generate_segacd_header("SEGA CD", 0xC0); // USA region
         let analysis = analyze_segacd_data(&data, "test_rom_us.iso")?;
 
@@ -234,7 +231,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_segacd_data_unrestricted() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_segacd_data_unrestricted() -> Result<(), RomAnalyzerError> {
         let data = generate_segacd_header("SEGA CD", 0x00); // Unrestricted region
         let analysis = analyze_segacd_data(&data, "test_rom_unrestricted.iso")?;
 
@@ -250,7 +247,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_segacd_data_mega_signature() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_segacd_data_mega_signature() -> Result<(), RomAnalyzerError> {
         let data = generate_segacd_header("SEGA MEGA", 0x40); // Japan region
         let analysis = analyze_segacd_data(&data, "test_rom_mega_jp.iso")?;
 
@@ -263,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_segacd_data_unknown_code() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_segacd_data_unknown_code() -> Result<(), RomAnalyzerError> {
         let data = generate_segacd_header("SEGA CD", 0xFF); // Unknown region code
         let analysis = analyze_segacd_data(&data, "test_rom_unknown.iso")?;
 

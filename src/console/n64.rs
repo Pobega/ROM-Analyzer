@@ -6,8 +6,6 @@
 //! N64 header documentation referenced here:
 //! <https://en64.shoutwiki.com/wiki/ROM>
 
-use std::error::Error;
-
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
@@ -106,16 +104,16 @@ pub fn map_region(country_code: &str) -> (&'static str, Region) {
 ///
 /// A `Result` which is:
 /// - `Ok`([`N64Analysis`]) containing the detailed analysis results.
-/// - `Err(Box<dyn Error>)` if the ROM data is too small to contain a valid N64 header.
-pub fn analyze_n64_data(data: &[u8], source_name: &str) -> Result<N64Analysis, Box<dyn Error>> {
+/// - `Err`([`RomAnalyzerError`]) if the ROM data is too small to contain a valid N64 header.
+pub fn analyze_n64_data(data: &[u8], source_name: &str) -> Result<N64Analysis, RomAnalyzerError> {
     // N64 header is at offset 0x0. Country code is at offset 0x3E (2 bytes).
     const HEADER_SIZE: usize = 0x40;
     if data.len() < HEADER_SIZE {
-        return Err(Box::new(RomAnalyzerError::new(&format!(
-            "ROM data is too small to contain an N64 header (size: {} bytes, requires at least {} bytes).",
-            data.len(),
-            HEADER_SIZE
-        ))));
+        return Err(RomAnalyzerError::DataTooSmall {
+            file_size: data.len(),
+            required_size: HEADER_SIZE,
+            details: "N64 header".to_string(),
+        });
     }
 
     // Extract Country Code (2 bytes, ASCII)
@@ -141,7 +139,6 @@ pub fn analyze_n64_data(data: &[u8], source_name: &str) -> Result<N64Analysis, B
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::error::Error;
 
     /// Helper function to generate a minimal N64 header for testing.
     fn generate_n64_header(country_code: &str) -> Vec<u8> {
@@ -156,7 +153,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_n64_data_usa() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_n64_data_usa() -> Result<(), RomAnalyzerError> {
         let data = generate_n64_header("E"); // USA region
         let analysis = analyze_n64_data(&data, "test_rom_us.n64")?;
 
@@ -175,7 +172,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_n64_data_japan() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_n64_data_japan() -> Result<(), RomAnalyzerError> {
         let data = generate_n64_header("J"); // Japan region
         let analysis = analyze_n64_data(&data, "test_rom_jp.n64")?;
 
@@ -187,7 +184,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_n64_data_europe() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_n64_data_europe() -> Result<(), RomAnalyzerError> {
         let data = generate_n64_header("P"); // Europe region
         let analysis = analyze_n64_data(&data, "test_rom_eur.n64")?;
 
@@ -199,7 +196,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_n64_data_germany() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_n64_data_germany() -> Result<(), RomAnalyzerError> {
         let data = generate_n64_header("D"); // Germany region
         let analysis = analyze_n64_data(&data, "test_rom_deu.n64")?;
 
@@ -211,7 +208,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_n64_data_france() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_n64_data_france() -> Result<(), RomAnalyzerError> {
         let data = generate_n64_header("F"); // France region
         let analysis = analyze_n64_data(&data, "test_rom_fra.n64")?;
 
@@ -223,7 +220,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_n64_data_legacy_usa() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_n64_data_legacy_usa() -> Result<(), RomAnalyzerError> {
         let data = generate_n64_header("U"); // Legacy USA region
         let analysis = analyze_n64_data(&data, "test_rom_usa_legacy.n64")?;
 
@@ -235,7 +232,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_n64_data_unknown() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_n64_data_unknown() -> Result<(), RomAnalyzerError> {
         let data = generate_n64_header("X"); // Unknown region
         let analysis = analyze_n64_data(&data, "test_rom.n64")?;
 

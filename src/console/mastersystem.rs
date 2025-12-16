@@ -5,8 +5,6 @@
 //! Master System header documentation referenced here:
 //! <https://www.smspower.org/Development/ROMHeader>
 
-use std::error::Error;
-
 use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
@@ -97,21 +95,21 @@ pub fn map_region(region_byte: u8) -> (&'static str, Region) {
 ///
 /// A `Result` which is:
 /// - `Ok`([`MasterSystemAnalysis`]) containing the detailed analysis results.
-/// - `Err(Box<dyn Error>)` if the ROM data is too small to contain the region byte.
+/// - `Err`([`RomAnalyzerError`]) if the ROM data is too small to contain the region byte.
 pub fn analyze_mastersystem_data(
     data: &[u8],
     source_name: &str,
-) -> Result<MasterSystemAnalysis, Box<dyn Error>> {
+) -> Result<MasterSystemAnalysis, RomAnalyzerError> {
     // SMS Region/Language byte is at offset 0x7FFC.
     // The header size for SMS is not strictly defined in a way that guarantees a fixed length for all ROMs,
     // but 0x7FFD is a common size for the data containing this byte.
     const REQUIRED_SIZE: usize = 0x7FFD;
     if data.len() < REQUIRED_SIZE {
-        return Err(Box::new(RomAnalyzerError::new(&format!(
-            "ROM data is too small to contain Master System region byte (size: {} bytes, requires at least {} bytes).",
-            data.len(),
-            REQUIRED_SIZE
-        ))));
+        return Err(RomAnalyzerError::DataTooSmall {
+            file_size: data.len(),
+            required_size: REQUIRED_SIZE,
+            details: "Master System region byte".to_string(),
+        });
     }
 
     let sms_region_byte = data[0x7FFC];
@@ -131,10 +129,9 @@ pub fn analyze_mastersystem_data(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::error::Error;
 
     #[test]
-    fn test_analyze_mastersystem_data_japan() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_mastersystem_data_japan() -> Result<(), RomAnalyzerError> {
         let mut data = vec![0; 0x7FFD];
         data[0x7FFC] = 0x30; // Japan region
         let analysis = analyze_mastersystem_data(&data, "test_rom_jp.sms")?;
@@ -154,7 +151,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_mastersystem_data_europe() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_mastersystem_data_europe() -> Result<(), RomAnalyzerError> {
         let mut data = vec![0; 0x7FFD];
         data[0x7FFC] = 0x4C; // Europe / Overseas region
         let analysis = analyze_mastersystem_data(&data, "test_rom_eur.sms")?;
@@ -167,7 +164,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_mastersystem_data_unknown() -> Result<(), Box<dyn Error>> {
+    fn test_analyze_mastersystem_data_unknown() -> Result<(), RomAnalyzerError> {
         let mut data = vec![0; 0x7FFD];
         data[0x7FFC] = 0x00; // Unknown region
         let analysis = analyze_mastersystem_data(&data, "test_rom.sms")?;
