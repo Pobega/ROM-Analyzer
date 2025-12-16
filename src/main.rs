@@ -4,6 +4,7 @@ use clap::{ArgAction, Parser};
 use log::{LevelFilter, error, info, warn};
 use rayon::prelude::*;
 
+use rom_analyzer::error::RomAnalyzerError;
 use rom_analyzer::region::infer_region_from_filename;
 use rom_analyzer::{RomAnalysisResult, analyze_rom_data};
 
@@ -40,20 +41,22 @@ fn get_log_level(quiet: bool, verbose: u8) -> LevelFilter {
 }
 
 /// Processes a list of file paths in parallel, returning a vector of results.
-/// Each result is an analysis on success, or an error string on failure.
-fn process_files_parallel(file_paths: &[String]) -> Vec<Result<RomAnalysisResult, String>> {
+/// Each result is an analysis on success (with the file path), or a RomAnalyzerError on failure.
+fn process_files_parallel(
+    file_paths: &[String],
+) -> Vec<Result<(String, RomAnalysisResult), RomAnalyzerError>> {
     file_paths
         .par_iter()
         .map(|file_path| {
             let path = Path::new(file_path);
 
             if !path.exists() {
-                return Err(format!("File not found: {}", file_path));
+                return Err(RomAnalyzerError::FileNotFound(file_path.clone()));
             }
 
             match analyze_rom_data(file_path) {
-                Ok(analysis) => Ok(analysis),
-                Err(e) => Err(format!("Error processing file {}: {}", file_path, e)),
+                Ok(analysis) => Ok((file_path.clone(), analysis)),
+                Err(e) => Err(e),
             }
         })
         .collect()
@@ -80,7 +83,7 @@ fn main() {
 
     for result in results {
         match result {
-            Ok(analysis) => {
+            Ok((_file_path, analysis)) => {
                 if cli.json {
                     json_results.push(analysis);
                 } else {
@@ -150,7 +153,13 @@ mod tests {
         let results = process_files_parallel(&non_existent);
         assert_eq!(results.len(), 1);
         assert!(results[0].is_err());
-        assert!(results[0].as_ref().unwrap_err().contains("File not found"));
+        assert!(
+            results[0]
+                .as_ref()
+                .unwrap_err()
+                .to_string()
+                .contains("File not found")
+        );
     }
 
     #[test]
@@ -166,7 +175,8 @@ mod tests {
         let results = process_files_parallel(&[file_path_str.clone()]);
         assert_eq!(results.len(), 1);
         assert!(results[0].is_ok());
-        let analysis = results[0].as_ref().unwrap();
+        let (path, analysis) = results[0].as_ref().unwrap();
+        assert_eq!(path, &file_path_str);
         assert_eq!(analysis.source_name(), file_path_str);
     }
 
