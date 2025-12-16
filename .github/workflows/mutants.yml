@@ -14,7 +14,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - name: Cache cargo binaries
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-mutants-${{ hashFiles('**/Cargo.lock') }}
     - name: Install cargo-mutants
-      run: cargo install cargo-mutants
+      run: |
+        if ! command -v cargo-mutants &> /dev/null; then
+          cargo install cargo-mutants
+        fi
     - name: Run mutation tests
       run: cargo mutants --timeout 10
