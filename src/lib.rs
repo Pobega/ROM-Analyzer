@@ -339,6 +339,9 @@ mod tests {
     use tempfile::tempdir;
     use zip::write::{FileOptions, ZipWriter};
 
+    const TEST_SEGA_MEGA_DRIVE_HEADER: &[u8] = b"SEGA MEGA DRIVE\0"; // Padded to 16 bytes
+    const TEST_SEGA_GENESIS_HEADER: &[u8] = b"SEGA GENESIS    ";
+
     #[test]
     fn test_get_rom_file_type() {
         assert_eq!(get_rom_file_type("game.nes"), RomFileType::Nes);
@@ -379,7 +382,7 @@ mod tests {
     #[test]
     fn test_process_rom_data_cd_system_sega_genesis_header() {
         let mut data = vec![0; 0x120];
-        data[0x100..0x110].copy_from_slice(b"SEGA MEGA DRIVE\0"); // Padded to 16 bytes
+        data[0x100..0x110].copy_from_slice(TEST_SEGA_MEGA_DRIVE_HEADER);
         let name = "game.bin";
         // This will attempt to call genesis::analyze_genesis_data
         // Since we don't have a full mock, we'll assert it doesn't return an unknown error
@@ -395,7 +398,7 @@ mod tests {
     #[test]
     fn test_process_rom_data_cd_system_sega_genesis_header_genesis() {
         let mut data = vec![0; 0x120];
-        data[0x100..0x110].copy_from_slice(b"SEGA GENESIS    ");
+        data[0x100..0x110].copy_from_slice(TEST_SEGA_GENESIS_HEADER);
         let name = "game.bin";
         let result = process_rom_data(data, name);
         assert!(result.is_err());
