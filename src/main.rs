@@ -44,6 +44,7 @@ fn get_log_level(quiet: bool, verbose: u8) -> LevelFilter {
 
 /// Processes a list of file paths in parallel, returning a vector of results.
 /// Each result is an analysis on success (with the file path), or a RomAnalyzerError on failure.
+/// Results are returned in the same order as the input file paths.
 fn process_files_parallel(
     file_paths: &[String],
 ) -> Vec<Result<(String, RomAnalysisResult), RomAnalyzerError>> {
@@ -52,18 +53,17 @@ fn process_files_parallel(
         .map(|file_path| match analyze_rom_data(file_path) {
             Ok(analysis) => Ok((file_path.clone(), analysis)),
             Err(e) => {
-                let wrapped = match e {
+                // Convert NotFound IO errors to FileNotFound (no wrapping needed, path is included)
+                // Wrap other errors with WithPath for context
+                let err = match e {
                     RomAnalyzerError::IoError(io_err)
                         if io_err.kind() == std::io::ErrorKind::NotFound =>
                     {
                         RomAnalyzerError::FileNotFound(file_path.clone())
                     }
-                    _ => e,
+                    other => RomAnalyzerError::WithPath(file_path.clone(), Box::new(other)),
                 };
-                Err(RomAnalyzerError::WithPath(
-                    file_path.clone(),
-                    Box::new(wrapped),
-                ))
+                Err(err)
             }
         })
         .collect()
@@ -173,16 +173,10 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert!(results[0].is_err());
         match &results[0] {
-            Err(RomAnalyzerError::WithPath(path, inner)) => {
+            Err(RomAnalyzerError::FileNotFound(path)) => {
                 assert_eq!(path, "non_existent_file.nes");
-                assert!(
-                    matches!(**inner, RomAnalyzerError::FileNotFound(ref p) if p == "non_existent_file.nes")
-                );
             }
-            _ => panic!(
-                "Expected WithPath(FileNotFound) error, but got {:?}",
-                results[0]
-            ),
+            _ => panic!("Expected FileNotFound error, but got {:?}", results[0]),
         }
     }
 
@@ -196,8 +190,8 @@ mod tests {
         )
         .unwrap(); // Minimal NES header
         let file_path_str = file_path.to_str().unwrap().to_string();
-        #[allow(clippy::cloned_ref_to_slice_refs)]
-        let results = process_files_parallel(&[file_path_str.clone()]);
+        let file_paths = vec![file_path_str.clone()];
+        let results = process_files_parallel(&file_paths);
         assert_eq!(results.len(), 1);
         match &results[0] {
             Ok((path, analysis)) => {
@@ -227,5 +221,58 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert_eq!(ok_count, 1);
         assert_eq!(err_count, 1);
+    }
+
+    #[test]
+    fn test_process_files_parallel_empty_input() {
+        let results = process_files_parallel(&[]);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_process_files_parallel_order_preserved() {
+        let dir = tempdir().unwrap();
+        let file1 = dir.path().join("a.nes");
+        let file2 = dir.path().join("b.nes");
+        let file3 = dir.path().join("c.nes");
+
+        let nes_header = b"NES\x1a\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+        fs::write(&file1, nes_header).unwrap();
+        fs::write(&file2, nes_header).unwrap();
+        fs::write(&file3, nes_header).unwrap();
+
+        let file_paths = vec![
+            file1.to_str().unwrap().to_string(),
+            file2.to_str().unwrap().to_string(),
+            file3.to_str().unwrap().to_string(),
+        ];
+        let results = process_files_parallel(&file_paths);
+
+        assert_eq!(results.len(), 3);
+        for (i, result) in results.iter().enumerate() {
+            match result {
+                Ok((path, _)) => assert_eq!(path, &file_paths[i]),
+                Err(e) => panic!("Expected Ok, but got error: {:?}", e),
+            }
+        }
+    }
+
+    #[test]
+    fn test_process_files_parallel_other_errors_wrapped() {
+        // Test that non-NotFound errors get wrapped with WithPath
+        let dir = tempdir().unwrap();
+        let invalid_file = dir.path().join("invalid.nes");
+        fs::write(&invalid_file, b"not a valid NES file").unwrap();
+
+        let file_paths = vec![invalid_file.to_str().unwrap().to_string()];
+        let results = process_files_parallel(&file_paths);
+
+        assert_eq!(results.len(), 1);
+        match &results[0] {
+            Err(RomAnalyzerError::WithPath(path, _)) => {
+                assert_eq!(path, invalid_file.to_str().unwrap());
+            }
+            other => panic!("Expected WithPath error, but got {:?}", other),
+        }
     }
 }
