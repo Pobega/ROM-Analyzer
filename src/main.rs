@@ -43,15 +43,15 @@ fn get_log_level(quiet: bool, verbose: u8) -> LevelFilter {
 }
 
 /// Processes a list of file paths in parallel, returning a vector of results.
-/// Each result is an analysis on success (with the file path), or a RomAnalyzerError on failure.
+/// Each result is an analysis on success, or a RomAnalyzerError on failure.
 /// Results are returned in the same order as the input file paths.
 fn process_files_parallel(
     file_paths: &[String],
-) -> Vec<Result<(String, RomAnalysisResult), RomAnalyzerError>> {
+) -> Vec<Result<RomAnalysisResult, RomAnalyzerError>> {
     file_paths
         .par_iter()
         .map(|file_path| match analyze_rom_data(file_path) {
-            Ok(analysis) => Ok((file_path.clone(), analysis)),
+            Ok(analysis) => Ok(analysis),
             Err(e) => {
                 // Convert NotFound IO errors to FileNotFound (no wrapping needed, path is included)
                 // Wrap other errors with WithPath for context
@@ -102,7 +102,7 @@ fn main() {
 
     for result in results {
         match result {
-            Ok((_, analysis)) => {
+            Ok(analysis) => {
                 if cli.json {
                     json_results.push(analysis);
                 } else {
@@ -194,8 +194,8 @@ mod tests {
         let results = process_files_parallel(&file_paths);
         assert_eq!(results.len(), 1);
         match &results[0] {
-            Ok((path, analysis)) => {
-                assert_eq!(path, &file_path_str);
+            Ok(analysis) => {
+                assert_eq!(analysis.source_name(), &file_path_str);
                 assert_eq!(analysis.source_name(), &file_path_str);
             }
             Err(e) => panic!("Expected Ok, but got error: {:?}", e),
@@ -251,7 +251,7 @@ mod tests {
         assert_eq!(results.len(), 3);
         for (i, result) in results.iter().enumerate() {
             match result {
-                Ok((path, _)) => assert_eq!(path, &file_paths[i]),
+                Ok(analysis) => assert_eq!(analysis.source_name(), &file_paths[i]),
                 Err(e) => panic!("Expected Ok, but got error: {:?}", e),
             }
         }
