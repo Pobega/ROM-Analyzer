@@ -25,7 +25,7 @@ struct Cli {
     #[clap(short, long, action = ArgAction::SetTrue)]
     json: bool,
 
-    /// Number of threads to use for parallel processing
+    /// Number of threads to use for parallel processing (0 or omitted uses all available threads)
     #[clap(long, value_name = "N")]
     threads: Option<usize>,
 }
@@ -102,7 +102,7 @@ fn main() {
 
     for result in results {
         match result {
-            Ok((_file_path, analysis)) => {
+            Ok((_, analysis)) => {
                 if cli.json {
                     json_results.push(analysis);
                 } else {
