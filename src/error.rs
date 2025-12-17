@@ -18,7 +18,7 @@ pub enum RomAnalyzerError {
     },
     /// Header data is invalid or corrupted
     InvalidHeader(String),
-    /// Failed to parse specific data fields
+    /// Reserved for future parsing error handling
     ParsingError(String),
     /// Checksum validation failed
     ChecksumMismatch(String),
