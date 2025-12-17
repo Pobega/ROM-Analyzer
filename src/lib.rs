@@ -48,6 +48,9 @@ pub const SUPPORTED_ROM_EXTENSIONS: &[&str] = &[
     ".iso", ".bin", ".img", ".psx", // CD Systems
 ];
 
+pub const SEGA_MEGA_DRIVE_SIG: &[u8] = b"SEGA MEGA DRIVE";
+pub const SEGA_GENESIS_SIG: &[u8] = b"SEGA GENESIS";
+
 /// Represents the analysis result for a ROM file.
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(tag = "console")]
@@ -202,9 +205,9 @@ fn process_rom_data(data: Vec<u8>, rom_path: &str) -> Result<RomAnalysisResult, 
 
             if data.len() >= SEGA_GENESIS_HEADER_END
                 && (data[SEGA_HEADER_START..SEGA_GENESIS_HEADER_END]
-                    .starts_with(b"SEGA MEGA DRIVE")
+                    .starts_with(SEGA_MEGA_DRIVE_SIG)
                     || data[SEGA_HEADER_START..SEGA_GENESIS_HEADER_END]
-                        .starts_with(b"SEGA GENESIS"))
+                        .starts_with(SEGA_GENESIS_SIG))
             {
                 genesis::analyze_genesis_data(&data, rom_path).map(RomAnalysisResult::Genesis)
             } else if data.len() >= SEGA_CD_MIN_LEN
@@ -339,7 +342,7 @@ mod tests {
     use tempfile::tempdir;
     use zip::write::{FileOptions, ZipWriter};
 
-    const TEST_SEGA_MEGA_DRIVE_HEADER: &[u8] = b"SEGA MEGA DRIVE\0"; // Padded to 16 bytes
+    const TEST_SEGA_MEGA_DRIVE_HEADER: &[u8] = b"SEGA MEGA DRIVE "; // Padded to 16 bytes
     const TEST_SEGA_GENESIS_HEADER: &[u8] = b"SEGA GENESIS    ";
 
     #[test]
