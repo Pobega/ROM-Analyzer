@@ -47,7 +47,7 @@ fn get_log_level(quiet: bool, verbose: u8) -> LevelFilter {
 /// Processes a list of file paths in parallel, returning a vector of results.
 /// Each result is an analysis on success (with the file path), or a RomAnalyzerError on failure.
 fn process_files_parallel(
-    file_paths: &[&str],
+    file_paths: &[String],
 ) -> Vec<Result<(String, RomAnalysisResult), RomAnalyzerError>> {
     file_paths
         .par_iter()
@@ -55,12 +55,15 @@ fn process_files_parallel(
             let path = Path::new(file_path);
 
             if !path.exists() {
-                return Err(RomAnalyzerError::FileNotFound(file_path.to_string()));
+                return Err(RomAnalyzerError::WithPath(
+                    file_path.clone(),
+                    Box::new(RomAnalyzerError::FileNotFound(file_path.clone())),
+                ));
             }
 
             match analyze_rom_data(file_path) {
-                Ok(analysis) => Ok((file_path.to_string(), analysis)),
-                Err(e) => Err(e),
+                Ok(analysis) => Ok((file_path.clone(), analysis)),
+                Err(e) => Err(RomAnalyzerError::WithPath(file_path.clone(), Box::new(e))),
             }
         })
         .collect()
@@ -95,8 +98,7 @@ fn main() {
 
     let mut json_results: Vec<RomAnalysisResult> = Vec::new();
 
-    let file_paths_refs: Vec<&str> = cli.file_paths.iter().map(|s| s.as_str()).collect();
-    let results = process_files_parallel(&file_paths_refs);
+    let results = process_files_parallel(&cli.file_paths);
 
     for result in results {
         match result {
@@ -167,17 +169,12 @@ mod tests {
     #[test]
     fn test_process_files_parallel_non_existent_file() {
         let non_existent = ["non_existent_file.nes".to_string()];
-        let file_paths_refs: Vec<&str> = non_existent.iter().map(|s| s.as_str()).collect();
-        let results = process_files_parallel(&file_paths_refs);
+        let results = process_files_parallel(&non_existent);
         assert_eq!(results.len(), 1);
         assert!(results[0].is_err());
-        assert!(
-            results[0]
-                .as_ref()
-                .unwrap_err()
-                .to_string()
-                .contains("File not found")
-        );
+        assert!(results[0].as_ref().unwrap_err().to_string().contains(
+            "Error processing file non_existent_file.nes: File not found: non_existent_file.nes"
+        ));
     }
 
     #[test]
@@ -190,7 +187,7 @@ mod tests {
         )
         .unwrap(); // Minimal NES header
         let file_path_str = file_path.to_str().unwrap().to_string();
-        let results = process_files_parallel(&[&file_path_str]);
+        let results = process_files_parallel(std::slice::from_ref(&file_path_str));
         assert_eq!(results.len(), 1);
         assert!(results[0].is_ok());
         let (path, analysis) = results[0].as_ref().unwrap();
@@ -209,9 +206,8 @@ mod tests {
         .unwrap();
         let valid_path = valid_file.to_str().unwrap().to_string();
         let invalid_path = "invalid.nes".to_string();
-        let file_paths = [valid_path.clone(), invalid_path];
-        let file_paths_refs: Vec<&str> = file_paths.iter().map(|s| s.as_str()).collect();
-        let results = process_files_parallel(&file_paths_refs);
+        let file_paths = vec![valid_path.clone(), invalid_path];
+        let results = process_files_parallel(&file_paths);
         let ok_count = results.iter().filter(|r| r.is_ok()).count();
         let err_count = results.iter().filter(|r| r.is_err()).count();
         assert_eq!(results.len(), 2);

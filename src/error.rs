@@ -34,6 +34,8 @@ pub enum RomAnalyzerError {
     FileNotFound(String),
     /// Generic error with custom message
     Generic(String),
+    /// Error with associated file path for better context
+    WithPath(String, Box<RomAnalyzerError>),
 }
 
 impl RomAnalyzerError {
@@ -59,13 +61,11 @@ impl fmt::Display for RomAnalyzerError {
                 file_size,
                 required_size,
                 details,
-            } => {
-                write!(
-                    f,
-                    "ROM data too small: {} bytes, requires at least {} bytes. {}",
-                    file_size, required_size, details
-                )
-            }
+            } => write!(
+                f,
+                "ROM data too small: {} bytes, requires at least {} bytes. {}",
+                file_size, required_size, details
+            ),
             RomAnalyzerError::InvalidHeader(msg) => write!(f, "Invalid header: {}", msg),
             RomAnalyzerError::ParsingError(msg) => write!(f, "Parsing error: {}", msg),
             RomAnalyzerError::ChecksumMismatch(msg) => write!(f, "Checksum mismatch: {}", msg),
@@ -75,6 +75,9 @@ impl fmt::Display for RomAnalyzerError {
             RomAnalyzerError::ChdError(err) => write!(f, "CHD error: {}", err),
             RomAnalyzerError::FileNotFound(path) => write!(f, "File not found: {}", path),
             RomAnalyzerError::Generic(msg) => write!(f, "{}", msg),
+            RomAnalyzerError::WithPath(path, err) => {
+                write!(f, "Error processing file {}: {}", path, err)
+            }
         }
     }
 }
@@ -85,6 +88,7 @@ impl Error for RomAnalyzerError {
             RomAnalyzerError::IoError(err) => Some(err),
             RomAnalyzerError::ZipError(err) => Some(err),
             RomAnalyzerError::ChdError(err) => Some(err),
+            RomAnalyzerError::WithPath(_, err) => err.source(),
             _ => None,
         }
     }
@@ -236,5 +240,21 @@ mod tests {
         } else {
             panic!("Expected ChdError, but got {:?}", result.unwrap_err());
         }
+    }
+
+    #[test]
+    fn test_error_source_with_path() {
+        // Test that WithPath delegates source() to the inner error
+        let io_err = IoError::new(ErrorKind::NotFound, "File not found");
+        let inner_err = RomAnalyzerError::IoError(io_err);
+        let wrapped_err = RomAnalyzerError::WithPath("test.nes".to_string(), Box::new(inner_err));
+        assert!(wrapped_err.source().is_some());
+        assert_eq!(wrapped_err.source().unwrap().to_string(), "File not found");
+
+        // Test WithPath with an error that has no source
+        let inner_err_no_source = RomAnalyzerError::Generic("test".to_string());
+        let wrapped_err_no_source =
+            RomAnalyzerError::WithPath("test.nes".to_string(), Box::new(inner_err_no_source));
+        assert!(wrapped_err_no_source.source().is_none());
     }
 }
