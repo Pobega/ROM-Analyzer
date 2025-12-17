@@ -216,6 +216,9 @@ mod tests {
         let rom_err = RomAnalyzerError::InvalidHeader("test".to_string());
         assert!(rom_err.source().is_none());
 
+        let rom_err = RomAnalyzerError::ParsingError("test".to_string());
+        assert!(rom_err.source().is_none());
+
         let rom_err = RomAnalyzerError::FileNotFound("test".to_string());
         assert!(rom_err.source().is_none());
     }

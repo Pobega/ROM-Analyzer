@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use clap::{ArgAction, Parser};
 use log::{LevelFilter, error, info, warn};
 use rayon::prelude::*;
@@ -47,26 +45,25 @@ fn get_log_level(quiet: bool, verbose: u8) -> LevelFilter {
 /// Processes a list of file paths in parallel, returning a vector of results.
 /// Each result is an analysis on success (with the file path), or a RomAnalyzerError on failure.
 fn process_files_parallel(
-    file_paths: &[&str],
+    file_paths: &[String],
 ) -> Vec<Result<(String, RomAnalysisResult), RomAnalyzerError>> {
     file_paths
         .par_iter()
-        .map(|file_path| {
-            let path = Path::new(file_path);
-
-            if !path.exists() {
-                return Err(RomAnalyzerError::WithPath(
-                    file_path.to_string(),
-                    Box::new(RomAnalyzerError::FileNotFound(file_path.to_string())),
-                ));
-            }
-
-            match analyze_rom_data(file_path) {
-                Ok(analysis) => Ok((file_path.to_string(), analysis)),
-                Err(e) => Err(RomAnalyzerError::WithPath(
-                    file_path.to_string(),
-                    Box::new(e),
-                )),
+        .map(|file_path| match analyze_rom_data(file_path) {
+            Ok(analysis) => Ok((file_path.clone(), analysis)),
+            Err(e) => {
+                let wrapped = match e {
+                    RomAnalyzerError::IoError(io_err)
+                        if io_err.kind() == std::io::ErrorKind::NotFound =>
+                    {
+                        RomAnalyzerError::FileNotFound(file_path.clone())
+                    }
+                    _ => e,
+                };
+                Err(RomAnalyzerError::WithPath(
+                    file_path.clone(),
+                    Box::new(wrapped),
+                ))
             }
         })
         .collect()
@@ -101,8 +98,7 @@ fn main() {
 
     let mut json_results: Vec<RomAnalysisResult> = Vec::new();
 
-    let file_paths_refs: Vec<&str> = cli.file_paths.iter().map(|s| s.as_str()).collect();
-    let results = process_files_parallel(&file_paths_refs);
+    let results = process_files_parallel(&cli.file_paths);
 
     for result in results {
         match result {
@@ -172,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_process_files_parallel_non_existent_file() {
-        let non_existent = ["non_existent_file.nes"];
+        let non_existent = ["non_existent_file.nes".to_string()];
         let results = process_files_parallel(&non_existent);
         assert_eq!(results.len(), 1);
         assert!(results[0].is_err());
@@ -200,7 +196,8 @@ mod tests {
         )
         .unwrap(); // Minimal NES header
         let file_path_str = file_path.to_str().unwrap().to_string();
-        let results = process_files_parallel(&[file_path_str.as_str()]);
+        #[allow(clippy::cloned_ref_to_slice_refs)]
+        let results = process_files_parallel(&[file_path_str.clone()]);
         assert_eq!(results.len(), 1);
         match &results[0] {
             Ok((path, analysis)) => {
@@ -220,7 +217,10 @@ mod tests {
             b"NES\x1a\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
         )
         .unwrap();
-        let file_paths: Vec<&str> = vec![valid_file.to_str().unwrap(), "invalid.nes"];
+        let file_paths = vec![
+            valid_file.to_str().unwrap().to_string(),
+            "invalid.nes".to_string(),
+        ];
         let results = process_files_parallel(&file_paths);
         let ok_count = results.iter().filter(|r| r.is_ok()).count();
         let err_count = results.iter().filter(|r| r.is_err()).count();
