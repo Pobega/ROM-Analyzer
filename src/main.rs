@@ -172,9 +172,18 @@ mod tests {
         let results = process_files_parallel(&non_existent);
         assert_eq!(results.len(), 1);
         assert!(results[0].is_err());
-        assert!(results[0].as_ref().unwrap_err().to_string().contains(
-            "Error processing file non_existent_file.nes: File not found: non_existent_file.nes"
-        ));
+        match &results[0] {
+            Err(RomAnalyzerError::WithPath(path, inner)) => {
+                assert_eq!(path, "non_existent_file.nes");
+                assert!(
+                    matches!(**inner, RomAnalyzerError::FileNotFound(ref p) if p == "non_existent_file.nes")
+                );
+            }
+            _ => panic!(
+                "Expected WithPath(FileNotFound) error, but got {:?}",
+                results[0]
+            ),
+        }
     }
 
     #[test]
