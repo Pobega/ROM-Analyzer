@@ -152,6 +152,9 @@ mod tests {
     use std::fs;
     use tempfile::tempdir;
 
+    const TEST_NES_HEADER: &[u8] =
+        b"NES\x1a\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+
     #[test]
     fn test_get_log_level_quiet() {
         assert_eq!(get_log_level(true, 0), LevelFilter::Error);
@@ -184,11 +187,7 @@ mod tests {
     fn test_process_files_parallel_valid_file() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("test.nes");
-        fs::write(
-            &file_path,
-            b"NES\x1a\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-        )
-        .unwrap(); // Minimal NES header
+        fs::write(&file_path, TEST_NES_HEADER).unwrap(); // Minimal NES header
         let file_path_str = file_path.to_str().unwrap().to_string();
         let file_paths = vec![file_path_str.clone()];
         let results = process_files_parallel(&file_paths);
@@ -203,11 +202,7 @@ mod tests {
     fn test_process_files_parallel_mixed_files() {
         let dir = tempdir().unwrap();
         let valid_file = dir.path().join("valid.nes");
-        fs::write(
-            &valid_file,
-            b"NES\x1a\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-        )
-        .unwrap();
+        fs::write(&valid_file, TEST_NES_HEADER).unwrap();
         let file_paths = vec![
             valid_file.to_str().unwrap().to_string(),
             "invalid.nes".to_string(),
@@ -233,10 +228,9 @@ mod tests {
         let file2 = dir.path().join("b.nes");
         let file3 = dir.path().join("c.nes");
 
-        let nes_header = b"NES\x1a\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-        fs::write(&file1, nes_header).unwrap();
-        fs::write(&file2, nes_header).unwrap();
-        fs::write(&file3, nes_header).unwrap();
+        fs::write(&file1, TEST_NES_HEADER).unwrap();
+        fs::write(&file2, TEST_NES_HEADER).unwrap();
+        fs::write(&file3, TEST_NES_HEADER).unwrap();
 
         let file_paths = vec![
             file1.to_str().unwrap().to_string(),
