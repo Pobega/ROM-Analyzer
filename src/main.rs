@@ -194,10 +194,7 @@ mod tests {
         let results = process_files_parallel(&file_paths);
         assert_eq!(results.len(), 1);
         match &results[0] {
-            Ok(analysis) => {
-                assert_eq!(analysis.source_name(), &file_path_str);
-                assert_eq!(analysis.source_name(), &file_path_str);
-            }
+            Ok(analysis) => assert_eq!(analysis.source_name(), &file_path_str),
             Err(e) => panic!("Expected Ok, but got error: {:?}", e),
         }
     }
