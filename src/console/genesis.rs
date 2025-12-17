@@ -11,6 +11,7 @@ use serde::Serialize;
 
 use crate::error::RomAnalyzerError;
 use crate::region::{Region, check_region_mismatch};
+use crate::{SEGA_GENESIS_SIG, SEGA_MEGA_DRIVE_SIG};
 
 const SYSTEM_TYPE_START: usize = 0x100;
 const SYSTEM_TYPE_END: usize = 0x110;
@@ -161,7 +162,8 @@ pub fn analyze_genesis_data(
 
     // If the signature doesn't match, it might still be a valid ROM but with a different header convention.
     // We'll proceed with analysis but log a warning if the console name is unexpected.
-    let is_valid_signature = console_name == "SEGA MEGA DRIVE" || console_name == "SEGA GENESIS";
+    let is_valid_signature = console_name_bytes.starts_with(SEGA_MEGA_DRIVE_SIG)
+        || console_name_bytes.starts_with(SEGA_GENESIS_SIG);
     if !is_valid_signature {
         error!(
             "[!] Warning: Unexpected Sega header signature for {} at 0x{:x}. Found: '{}'",
