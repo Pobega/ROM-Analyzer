@@ -1,6 +1,7 @@
 use clap::{ArgAction, Parser};
 use log::{LevelFilter, error, info, warn};
 use rayon::prelude::*;
+use std::path::Path;
 
 use rom_analyzer::error::RomAnalyzerError;
 use rom_analyzer::region::infer_region_from_filename;
@@ -28,6 +29,10 @@ struct Cli {
     /// Number of threads to use for parallel processing (0 or omitted uses all available threads)
     #[clap(long, value_name = "N")]
     threads: Option<usize>,
+
+    /// Recursively process directories for ROM files
+    #[clap(short, long, action = ArgAction::SetTrue)]
+    recursive: bool,
 }
 
 fn get_log_level(quiet: bool, verbose: u8) -> LevelFilter {
@@ -38,6 +43,51 @@ fn get_log_level(quiet: bool, verbose: u8) -> LevelFilter {
             0 => LevelFilter::Info,  // (no -v): Show Info messages
             1 => LevelFilter::Debug, // -v: Show Debug messages
             _ => LevelFilter::Trace, // -vv or more: Show everything (Trace)
+        }
+    }
+}
+
+/// Recursively expands directory paths into a list of file paths.
+/// If recursive is false, directories are skipped with a warning.
+fn expand_paths(paths: &[String], recursive: bool) -> Vec<String> {
+    let mut expanded = Vec::new();
+    for path_str in paths {
+        let path = Path::new(path_str);
+        if path.is_dir() {
+            if recursive {
+                expand_directory_recursively(path, &mut expanded);
+            } else {
+                warn!(
+                    "Skipping directory {} (use -r for recursion)",
+                    path.display()
+                );
+            }
+        } else {
+            expanded.push(path_str.clone());
+        }
+    }
+    expanded.sort();
+    expanded.dedup();
+    expanded
+}
+
+/// Helper function to recursively collect files from a directory.
+fn expand_directory_recursively(dir: &Path, files: &mut Vec<String>) {
+    match std::fs::read_dir(dir) {
+        Ok(entries) => {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    expand_directory_recursively(&path, files);
+                } else if path.is_file()
+                    && let Some(path_str) = path.to_str()
+                {
+                    files.push(path_str.to_string());
+                }
+            }
+        }
+        Err(e) => {
+            warn!("Cannot read directory {}: {}", dir.display(), e);
         }
     }
 }
@@ -98,7 +148,8 @@ fn main() {
 
     let mut json_results: Vec<RomAnalysisResult> = Vec::new();
 
-    let results = process_files_parallel(&cli.file_paths);
+    let expanded_file_paths = expand_paths(&cli.file_paths, cli.recursive);
+    let results = process_files_parallel(&expanded_file_paths);
 
     for result in results {
         match result {
@@ -265,5 +316,180 @@ mod tests {
             }
             other => panic!("Expected WithPath error, but got {:?}", other),
         }
+    }
+
+    #[test]
+    fn test_expand_paths_non_recursive_skips_dirs() {
+        // Test that expand_paths skips directories when recursive is false.
+        let dir = tempdir().unwrap();
+        let file_in_dir = dir.path().join("file.nes");
+        fs::write(&file_in_dir, TEST_NES_HEADER).unwrap();
+        let paths = vec![dir.path().to_str().unwrap().to_string()];
+        let expanded = expand_paths(&paths, false);
+        assert!(expanded.is_empty()); // Directory skipped
+    }
+
+    #[test]
+    fn test_expand_paths_recursive_expands_dirs() {
+        // Test that expand_paths expands directories when recursive is true.
+        let dir = tempdir().unwrap();
+        let file_in_dir = dir.path().join("file.nes");
+        fs::write(&file_in_dir, TEST_NES_HEADER).unwrap();
+        let paths = vec![dir.path().to_str().unwrap().to_string()];
+        let expanded = expand_paths(&paths, true);
+        assert_eq!(expanded.len(), 1);
+        assert_eq!(expanded[0], file_in_dir.to_str().unwrap());
+    }
+
+    #[test]
+    fn test_expand_paths_nested_dirs() {
+        // Test that expand_paths handles nested directories recursively.
+        let root_dir = tempdir().unwrap();
+        let sub_dir = root_dir.path().join("sub");
+        fs::create_dir(&sub_dir).unwrap();
+        let file_in_subdir = sub_dir.join("nested.nes");
+        fs::write(&file_in_subdir, TEST_NES_HEADER).unwrap();
+        let paths = vec![root_dir.path().to_str().unwrap().to_string()];
+        let expanded = expand_paths(&paths, true);
+        assert_eq!(expanded.len(), 1);
+        assert_eq!(expanded[0], file_in_subdir.to_str().unwrap());
+    }
+
+    #[test]
+    fn test_expand_paths_mixed_files_and_dirs() {
+        // Test that expand_paths handles mixed files and directories.
+        let dir = tempdir().unwrap();
+        let file_in_dir = dir.path().join("dir_file.nes");
+        fs::write(&file_in_dir, TEST_NES_HEADER).unwrap();
+        let other_dir = tempdir().unwrap();
+        let standalone_file = other_dir.path().join("standalone.nes");
+        fs::write(&standalone_file, TEST_NES_HEADER).unwrap();
+        let paths = vec![
+            dir.path().to_str().unwrap().to_string(),
+            standalone_file.to_str().unwrap().to_string(),
+        ];
+        let expanded = expand_paths(&paths, true);
+        assert_eq!(expanded.len(), 2);
+        assert!(expanded.contains(&file_in_dir.to_str().unwrap().to_string()));
+        assert!(expanded.contains(&standalone_file.to_str().unwrap().to_string()));
+    }
+
+    #[test]
+    fn test_expand_paths_empty_dir() {
+        // Test that expand_paths returns empty for empty directories.
+        let dir = tempdir().unwrap();
+        let paths = vec![dir.path().to_str().unwrap().to_string()];
+        let expanded = expand_paths(&paths, true);
+        assert!(expanded.is_empty());
+    }
+
+    #[test]
+    fn test_expand_paths_deduplicates() {
+        // Test that expand_paths removes duplicate file paths.
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("file.nes");
+        fs::write(&file, TEST_NES_HEADER).unwrap();
+        let file_str = file.to_str().unwrap().to_string();
+        let paths = vec![file_str.clone(), file_str.clone(), file_str.clone()];
+        let expanded = expand_paths(&paths, false);
+        assert_eq!(expanded.len(), 1);
+        assert_eq!(expanded[0], file_str);
+    }
+
+    #[test]
+    fn test_expand_paths_empty_input() {
+        // Test that expand_paths handles empty input gracefully.
+        let expanded = expand_paths(&[], true);
+        assert!(expanded.is_empty());
+        let expanded_non_recursive = expand_paths(&[], false);
+        assert!(expanded_non_recursive.is_empty());
+    }
+
+    #[test]
+    fn test_expand_paths_deeply_nested() {
+        // Test that expand_paths handles deeply nested directories.
+        let root = tempdir().unwrap();
+        let level1 = root.path().join("a");
+        let level2 = level1.join("b");
+        let level3 = level2.join("c");
+        fs::create_dir_all(&level3).unwrap();
+        let deep_file = level3.join("deep.nes");
+        fs::write(&deep_file, TEST_NES_HEADER).unwrap();
+        let paths = vec![root.path().to_str().unwrap().to_string()];
+        let expanded = expand_paths(&paths, true);
+        assert_eq!(expanded.len(), 1);
+        assert_eq!(expanded[0], deep_file.to_str().unwrap());
+    }
+
+    #[test]
+    fn test_expand_paths_nonexistent_file() {
+        // Test that expand_paths passes through non-existent file paths unchanged.
+        let paths = vec!["nonexistent_file.nes".to_string()];
+        let expanded = expand_paths(&paths, true);
+        assert_eq!(expanded.len(), 1);
+        assert_eq!(expanded[0], "nonexistent_file.nes");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_expand_paths_follows_symlinks() {
+        // Test that expand_paths follows symlinks to files.
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().unwrap();
+        let target_file = dir.path().join("target.nes");
+        fs::write(&target_file, TEST_NES_HEADER).unwrap();
+        let symlink_file = dir.path().join("link.nes");
+        symlink(&target_file, &symlink_file).unwrap();
+        let paths = vec![symlink_file.to_str().unwrap().to_string()];
+        let expanded = expand_paths(&paths, false);
+        assert_eq!(expanded.len(), 1);
+        assert_eq!(expanded[0], symlink_file.to_str().unwrap());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_expand_paths_symlink_to_directory() {
+        // Test that expand_paths follows symlinks to directories when recursive.
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().unwrap();
+        let target_dir = dir.path().join("target");
+        fs::create_dir(&target_dir).unwrap();
+        let file_in_target = target_dir.join("file.nes");
+        fs::write(&file_in_target, TEST_NES_HEADER).unwrap();
+        let symlink_dir = dir.path().join("link");
+        symlink(&target_dir, &symlink_dir).unwrap();
+        let paths = vec![symlink_dir.to_str().unwrap().to_string()];
+        let expanded = expand_paths(&paths, true);
+        assert_eq!(expanded.len(), 1);
+        // The expanded path should be through the symlink
+        assert!(expanded[0].contains("link"));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_expand_directory_recursively_unreadable_dir() {
+        // Test that unreadable directories are handled gracefully with a warning.
+        use std::os::unix::fs::PermissionsExt;
+        let root = tempdir().unwrap();
+        let unreadable_dir = root.path().join("unreadable");
+        fs::create_dir(&unreadable_dir).unwrap();
+        let file_in_unreadable = unreadable_dir.join("file.nes");
+        fs::write(&file_in_unreadable, TEST_NES_HEADER).unwrap();
+
+        // Remove read permissions
+        let mut perms = fs::metadata(&unreadable_dir).unwrap().permissions();
+        perms.set_mode(0o000);
+        fs::set_permissions(&unreadable_dir, perms).unwrap();
+
+        let paths = vec![root.path().to_str().unwrap().to_string()];
+        let expanded = expand_paths(&paths, true);
+
+        // Restore permissions for cleanup
+        let mut perms = fs::metadata(&unreadable_dir).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&unreadable_dir, perms).unwrap();
+
+        // Should not include files from unreadable directory
+        assert!(expanded.is_empty());
     }
 }
