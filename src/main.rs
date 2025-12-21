@@ -2,6 +2,7 @@ use clap::{ArgAction, Parser};
 use log::{LevelFilter, error, info, warn};
 use rayon::prelude::*;
 use std::path::Path;
+use walkdir::WalkDir;
 
 use rom_analyzer::error::RomAnalyzerError;
 use rom_analyzer::region::infer_region_from_filename;
@@ -49,13 +50,25 @@ fn get_log_level(quiet: bool, verbose: u8) -> LevelFilter {
 
 /// Recursively expands directory paths into a list of file paths.
 /// If recursive is false, directories are skipped with a warning.
+/// Uses walkdir to handle edge cases like circular symbolic links gracefully.
 fn expand_paths(paths: &[String], recursive: bool) -> Vec<String> {
-    let mut expanded = Vec::new();
+    let mut expanded = std::collections::BTreeSet::new();
     for path_str in paths {
         let path = Path::new(path_str);
         if path.is_dir() {
             if recursive {
-                expand_directory_recursively(path, &mut expanded);
+                for entry_result in WalkDir::new(path) {
+                    match entry_result {
+                        Ok(entry) => {
+                            if entry.file_type().is_file()
+                                && let Some(entry_path_str) = entry.path().to_str()
+                            {
+                                expanded.insert(entry_path_str.to_string());
+                            }
+                        }
+                        Err(e) => warn!("Error walking directory: {}", e),
+                    }
+                }
             } else {
                 warn!(
                     "Skipping directory {} (use -r for recursion)",
@@ -63,33 +76,10 @@ fn expand_paths(paths: &[String], recursive: bool) -> Vec<String> {
                 );
             }
         } else {
-            expanded.push(path_str.clone());
+            expanded.insert(path_str.clone());
         }
     }
-    expanded.sort();
-    expanded.dedup();
-    expanded
-}
-
-/// Helper function to recursively collect files from a directory.
-fn expand_directory_recursively(dir: &Path, files: &mut Vec<String>) {
-    match std::fs::read_dir(dir) {
-        Ok(entries) => {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_dir() {
-                    expand_directory_recursively(&path, files);
-                } else if path.is_file()
-                    && let Some(path_str) = path.to_str()
-                {
-                    files.push(path_str.to_string());
-                }
-            }
-        }
-        Err(e) => {
-            warn!("Cannot read directory {}: {}", dir.display(), e);
-        }
-    }
+    expanded.into_iter().collect()
 }
 
 /// Processes a list of file paths in parallel, returning a vector of results.
@@ -467,7 +457,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn test_expand_directory_recursively_unreadable_dir() {
+    fn test_expand_paths_unreadable_dir() {
         // Test that unreadable directories are handled gracefully with a warning.
         use std::os::unix::fs::PermissionsExt;
         let root = tempdir().unwrap();
@@ -491,5 +481,33 @@ mod tests {
 
         // Should not include files from unreadable directory
         assert!(expanded.is_empty());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_expand_paths_circular_symlink() {
+        // Test that circular symbolic links are handled gracefully without stack overflow.
+        use std::os::unix::fs::symlink;
+        let root = tempdir().unwrap();
+
+        // Create a file in the root directory
+        let file_in_root = root.path().join("file.nes");
+        fs::write(&file_in_root, TEST_NES_HEADER).unwrap();
+
+        // Create a subdirectory
+        let subdir = root.path().join("subdir");
+        fs::create_dir(&subdir).unwrap();
+
+        // Create a symlink in the subdirectory that points back to the root
+        let circular_link = subdir.join("circular");
+        symlink(root.path(), &circular_link).unwrap();
+
+        let paths = vec![root.path().to_str().unwrap().to_string()];
+        // This should complete without stack overflow or infinite loop
+        let expanded = expand_paths(&paths, true);
+
+        // Verify that file.nes was found
+        assert!(!expanded.is_empty());
+        assert!(expanded.iter().any(|p| p.ends_with("file.nes")));
     }
 }
