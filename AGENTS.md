@@ -17,6 +17,9 @@ When writing code:
   * Be succinct over verbose. Explain the change in a short manner, but without losing context of the implementation.
   * Do not explain that we added tests, unless that's the only change in the code.
 
+For comments:
+  * Any comment that is on its own line should be a full sentence, and end with punctuation (preferably a period.)
+
 ## How to test
 
 Whenever code changes are made, please run the following commands to ensure that everything works as expected:
