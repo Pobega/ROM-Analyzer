@@ -347,6 +347,7 @@ mod tests {
 
     #[test]
     fn test_get_rom_file_type() {
+        // Tests that file extensions map to the correct RomFileType variants.
         assert_eq!(get_rom_file_type("game.nes"), RomFileType::Nes);
         assert_eq!(get_rom_file_type("game.smc"), RomFileType::Snes);
         assert_eq!(get_rom_file_type("game.sfc"), RomFileType::Snes);
@@ -373,6 +374,7 @@ mod tests {
 
     #[test]
     fn test_process_rom_data_unrecognized_extension() {
+        // Ensures unrecognized extensions return an error.
         let data = vec![];
         let name = "game.xyz";
         let result = process_rom_data(data, name);
@@ -384,6 +386,7 @@ mod tests {
 
     #[test]
     fn test_process_rom_data_cd_system_sega_genesis_header() {
+        // Ensures .bin with Sega Mega Drive header is dispatched to the Genesis analyzer.
         let mut data = vec![0; 0x120];
         data[0x100..0x110].copy_from_slice(TEST_SEGA_MEGA_DRIVE_HEADER);
         let name = "game.bin";
@@ -400,6 +403,7 @@ mod tests {
 
     #[test]
     fn test_process_rom_data_cd_system_sega_genesis_header_genesis() {
+        // Tests that Sega Genesis header in a .bin file is handled as a Genesis ROM, not a CD or PSX.
         let mut data = vec![0; 0x120];
         data[0x100..0x110].copy_from_slice(TEST_SEGA_GENESIS_HEADER);
         let name = "game.bin";
@@ -412,6 +416,7 @@ mod tests {
 
     #[test]
     fn test_process_rom_data_cd_system_sega_cd_header() {
+        // Tests that Sega CD header in a .iso file is handled as a Sega CD ROM, not as unrecognized.
         let mut data = vec![0; 0x120];
         data[0x100..0x107].copy_from_slice(b"SEGA CD");
         let name = "game.iso";
@@ -422,6 +427,7 @@ mod tests {
 
     #[test]
     fn test_process_rom_data_cd_system_psx() {
+        // Tests that a .bin file with no Sega header falls through to PSX analysis.
         let data = vec![0; 0x100]; // Not enough for Sega headers, should fall through to PSX
         let name = "game.bin";
         let result = process_rom_data(data, name);
@@ -431,6 +437,7 @@ mod tests {
 
     #[test]
     fn test_analyze_rom_data_zip() {
+        // Tests that analyzing a ZIP archive containing a ROM file returns an appropriate error.
         let dir = tempdir().unwrap();
         let zip_path = dir.path().join("test.zip");
         let zip_file = File::create(&zip_path).unwrap();
@@ -447,6 +454,7 @@ mod tests {
 
     #[test]
     fn test_analyze_rom_data_chd() {
+        // Tests that analyzing a CHD archive returns an appropriate error and does not misclassify as PSX.
         let dir = tempdir().unwrap();
         let chd_path = dir.path().join("test.chd");
         std::fs::write(&chd_path, b"invalid chd data").unwrap();
