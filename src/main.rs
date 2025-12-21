@@ -1,7 +1,8 @@
+use std::path::Path;
+
 use clap::{ArgAction, Parser};
 use log::{LevelFilter, error, info, warn};
 use rayon::prelude::*;
-use std::path::Path;
 use walkdir::WalkDir;
 
 use rom_analyzer::error::RomAnalyzerError;
@@ -52,18 +53,18 @@ fn get_log_level(quiet: bool, verbose: u8) -> LevelFilter {
 /// If recursive is false, directories are skipped with a warning.
 /// Uses walkdir to handle edge cases like circular symbolic links gracefully.
 fn expand_paths(paths: &[String], recursive: bool) -> Vec<String> {
-    let mut expanded = std::collections::BTreeSet::new();
+    let mut found_files = std::collections::BTreeSet::new();
     for path_str in paths {
         let path = Path::new(path_str);
         if path.is_dir() {
             if recursive {
-                for entry_result in WalkDir::new(path) {
-                    match entry_result {
+                for node_result in WalkDir::new(path) {
+                    match node_result {
                         Ok(entry) => {
                             if entry.file_type().is_file()
                                 && let Some(entry_path_str) = entry.path().to_str()
                             {
-                                expanded.insert(entry_path_str.to_string());
+                                found_files.insert(entry_path_str.to_string());
                             }
                         }
                         Err(e) => warn!("Error walking directory: {}", e),
@@ -76,10 +77,10 @@ fn expand_paths(paths: &[String], recursive: bool) -> Vec<String> {
                 );
             }
         } else {
-            expanded.insert(path_str.clone());
+            found_files.insert(path_str.clone());
         }
     }
-    expanded.into_iter().collect()
+    found_files.into_iter().collect()
 }
 
 /// Processes a list of file paths in parallel, returning a vector of results.
@@ -93,8 +94,8 @@ fn process_files_parallel(
         .map(|file_path| match analyze_rom_data(file_path) {
             Ok(analysis) => Ok(analysis),
             Err(e) => {
-                // Convert NotFound IO errors to FileNotFound (no wrapping needed, path is included)
-                // Wrap other errors with WithPath for context
+                // Convert NotFound IO errors to FileNotFound (no wrapping needed, path is included,)
+                // Wrap other errors with WithPath for context.
                 let err = match e {
                     RomAnalyzerError::IoError(io_err)
                         if io_err.kind() == std::io::ErrorKind::NotFound =>
@@ -198,12 +199,14 @@ mod tests {
 
     #[test]
     fn test_get_log_level_quiet() {
+        // Tests that quiet mode sets log level to Error regardless of verbosity.
         assert_eq!(get_log_level(true, 0), LevelFilter::Error);
         assert_eq!(get_log_level(true, 1), LevelFilter::Error);
     }
 
     #[test]
     fn test_get_log_level_verbose_levels() {
+        // Tests that verbosity levels set appropriate log levels when not quiet.
         assert_eq!(get_log_level(false, 0), LevelFilter::Info);
         assert_eq!(get_log_level(false, 1), LevelFilter::Debug);
         assert_eq!(get_log_level(false, 2), LevelFilter::Trace);
@@ -212,6 +215,7 @@ mod tests {
 
     #[test]
     fn test_process_files_parallel_non_existent_file() {
+        // Tests processing a non-existent file returns a FileNotFound error.
         let non_existent = ["non_existent_file.nes".to_string()];
         let results = process_files_parallel(&non_existent);
         assert_eq!(results.len(), 1);
@@ -226,11 +230,15 @@ mod tests {
 
     #[test]
     fn test_process_files_parallel_valid_file() {
+        // Tests processing a valid NES file succeeds and returns correct source name.
+
+        // Create a temporary directory and file.
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("test.nes");
         fs::write(&file_path, TEST_NES_HEADER).unwrap(); // Minimal NES header
         let file_path_str = file_path.to_str().unwrap().to_string();
         let file_paths = vec![file_path_str.clone()];
+
         let results = process_files_parallel(&file_paths);
         assert_eq!(results.len(), 1);
         match &results[0] {
@@ -241,6 +249,9 @@ mod tests {
 
     #[test]
     fn test_process_files_parallel_mixed_files() {
+        // Tests processing a mix of valid and invalid files returns appropriate results.
+
+        // Create a temporary directory with a valid NES ROM file.
         let dir = tempdir().unwrap();
         let valid_file = dir.path().join("valid.nes");
         fs::write(&valid_file, TEST_NES_HEADER).unwrap();
@@ -248,6 +259,7 @@ mod tests {
             valid_file.to_str().unwrap().to_string(),
             "invalid.nes".to_string(),
         ];
+
         let results = process_files_parallel(&file_paths);
         let ok_count = results.iter().filter(|r| r.is_ok()).count();
         let err_count = results.iter().filter(|r| r.is_err()).count();
@@ -258,28 +270,36 @@ mod tests {
 
     #[test]
     fn test_process_files_parallel_empty_input() {
+        // Tests processing an empty list of files returns an empty results list.
         let results = process_files_parallel(&[]);
         assert!(results.is_empty());
     }
 
     #[test]
     fn test_process_files_parallel_order_preserved() {
+        // Tests that processing multiple files preserves the order of results.
+
+        // Create three temporary NES files.
         let dir = tempdir().unwrap();
         let file1 = dir.path().join("a.nes");
         let file2 = dir.path().join("b.nes");
         let file3 = dir.path().join("c.nes");
 
+        // Write minimal NES headers to each.
         fs::write(&file1, TEST_NES_HEADER).unwrap();
         fs::write(&file2, TEST_NES_HEADER).unwrap();
         fs::write(&file3, TEST_NES_HEADER).unwrap();
 
+        // Collect their paths into a vector.
         let file_paths = vec![
             file1.to_str().unwrap().to_string(),
             file2.to_str().unwrap().to_string(),
             file3.to_str().unwrap().to_string(),
         ];
+        // Process the files in parallel.
         let results = process_files_parallel(&file_paths);
 
+        // Assert the results are in the correct order.
         assert_eq!(results.len(), 3);
         for (i, result) in results.iter().enumerate() {
             match result {
@@ -291,12 +311,16 @@ mod tests {
 
     #[test]
     fn test_process_files_parallel_other_errors_wrapped() {
-        // Test that non-NotFound errors get wrapped with WithPath
+        // Tests that non-NotFound errors are wrapped with WithPath for context.
+
+        // Create a temporary directory and invalid file.
         let dir = tempdir().unwrap();
         let invalid_file = dir.path().join("invalid.nes");
         fs::write(&invalid_file, b"not a valid NES file").unwrap();
 
         let file_paths = vec![invalid_file.to_str().unwrap().to_string()];
+
+        // Process the file, expecting a RomAnalyzerError::WithPath.
         let results = process_files_parallel(&file_paths);
 
         assert_eq!(results.len(), 1);
@@ -310,22 +334,30 @@ mod tests {
 
     #[test]
     fn test_expand_paths_non_recursive_skips_dirs() {
-        // Test that expand_paths skips directories when recursive is false.
+        // Tests that non-recursive mode skips directories without expanding them.
+
+        // Create a temporary directory with a file inside it.
         let dir = tempdir().unwrap();
         let file_in_dir = dir.path().join("file.nes");
         fs::write(&file_in_dir, TEST_NES_HEADER).unwrap();
         let paths = vec![dir.path().to_str().unwrap().to_string()];
+
+        // Expand paths non-recursively.
         let expanded = expand_paths(&paths, false);
         assert!(expanded.is_empty()); // Directory skipped
     }
 
     #[test]
     fn test_expand_paths_recursive_expands_dirs() {
-        // Test that expand_paths expands directories when recursive is true.
+        // Tests that recursive mode expands directories to include files within.
+
+        // Create a temporary directory with a file inside it.
         let dir = tempdir().unwrap();
         let file_in_dir = dir.path().join("file.nes");
         fs::write(&file_in_dir, TEST_NES_HEADER).unwrap();
         let paths = vec![dir.path().to_str().unwrap().to_string()];
+
+        // Expand paths recursively.
         let expanded = expand_paths(&paths, true);
         assert_eq!(expanded.len(), 1);
         assert_eq!(expanded[0], file_in_dir.to_str().unwrap());
@@ -333,12 +365,18 @@ mod tests {
 
     #[test]
     fn test_expand_paths_nested_dirs() {
-        // Test that expand_paths handles nested directories recursively.
+        // Tests that nested directories are handled recursively.
+
+        // Create a temporary root directory and subdirectory.
         let root_dir = tempdir().unwrap();
         let sub_dir = root_dir.path().join("sub");
         fs::create_dir(&sub_dir).unwrap();
+
+        // Create a file in the nested subdirectory.
         let file_in_subdir = sub_dir.join("nested.nes");
         fs::write(&file_in_subdir, TEST_NES_HEADER).unwrap();
+
+        // Expand paths recursively.
         let paths = vec![root_dir.path().to_str().unwrap().to_string()];
         let expanded = expand_paths(&paths, true);
         assert_eq!(expanded.len(), 1);
@@ -347,7 +385,9 @@ mod tests {
 
     #[test]
     fn test_expand_paths_mixed_files_and_dirs() {
-        // Test that expand_paths handles mixed files and directories.
+        // Tests handling a mix of files and directories in input paths.
+
+        // Create temporary directories and some files.
         let dir = tempdir().unwrap();
         let file_in_dir = dir.path().join("dir_file.nes");
         fs::write(&file_in_dir, TEST_NES_HEADER).unwrap();
@@ -358,6 +398,8 @@ mod tests {
             dir.path().to_str().unwrap().to_string(),
             standalone_file.to_str().unwrap().to_string(),
         ];
+
+        // Expand paths recursively.
         let expanded = expand_paths(&paths, true);
         assert_eq!(expanded.len(), 2);
         assert!(expanded.contains(&file_in_dir.to_str().unwrap().to_string()));
@@ -366,7 +408,7 @@ mod tests {
 
     #[test]
     fn test_expand_paths_empty_dir() {
-        // Test that expand_paths returns empty for empty directories.
+        // Tests that empty directories are handled without including any files.
         let dir = tempdir().unwrap();
         let paths = vec![dir.path().to_str().unwrap().to_string()];
         let expanded = expand_paths(&paths, true);
@@ -375,20 +417,28 @@ mod tests {
 
     #[test]
     fn test_expand_paths_deduplicates() {
-        // Test that expand_paths removes duplicate file paths.
+        // Tests that duplicate file paths are deduplicated in the output.
+
+        // Create temporary directory and some files.
         let dir = tempdir().unwrap();
-        let file = dir.path().join("file.nes");
-        fs::write(&file, TEST_NES_HEADER).unwrap();
-        let file_str = file.to_str().unwrap().to_string();
-        let paths = vec![file_str.clone(), file_str.clone(), file_str.clone()];
+        let file1 = dir.path().join("file1.nes");
+        let file2 = dir.path().join("file2.nes");
+        fs::write(&file1, TEST_NES_HEADER).unwrap();
+        fs::write(&file2, TEST_NES_HEADER).unwrap();
+        let file1_str = file1.to_str().unwrap().to_string();
+        let file2_str = file2.to_str().unwrap().to_string();
+        let paths = vec![file1_str.clone(), file2_str.clone(), file1_str.clone()];
+
+        // Expand paths non-recursively.
         let expanded = expand_paths(&paths, false);
-        assert_eq!(expanded.len(), 1);
-        assert_eq!(expanded[0], file_str);
+        assert_eq!(expanded.len(), 2);
+        assert!(expanded.contains(&file1_str));
+        assert!(expanded.contains(&file2_str));
     }
 
     #[test]
     fn test_expand_paths_empty_input() {
-        // Test that expand_paths handles empty input gracefully.
+        // Tests that empty input paths result in empty output.
         let expanded = expand_paths(&[], true);
         assert!(expanded.is_empty());
         let expanded_non_recursive = expand_paths(&[], false);
@@ -397,7 +447,9 @@ mod tests {
 
     #[test]
     fn test_expand_paths_deeply_nested() {
-        // Test that expand_paths handles deeply nested directories.
+        // Tests handling deeply nested directory structures.
+
+        // Create deeply nested directory structure.
         let root = tempdir().unwrap();
         let level1 = root.path().join("a");
         let level2 = level1.join("b");
@@ -406,6 +458,8 @@ mod tests {
         let deep_file = level3.join("deep.nes");
         fs::write(&deep_file, TEST_NES_HEADER).unwrap();
         let paths = vec![root.path().to_str().unwrap().to_string()];
+
+        // Expand paths recursively.
         let expanded = expand_paths(&paths, true);
         assert_eq!(expanded.len(), 1);
         assert_eq!(expanded[0], deep_file.to_str().unwrap());
@@ -413,7 +467,7 @@ mod tests {
 
     #[test]
     fn test_expand_paths_nonexistent_file() {
-        // Test that expand_paths passes through non-existent file paths unchanged.
+        // Tests that non-existent file paths are passed through unchanged.
         let paths = vec!["nonexistent_file.nes".to_string()];
         let expanded = expand_paths(&paths, true);
         assert_eq!(expanded.len(), 1);
@@ -423,14 +477,18 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn test_expand_paths_follows_symlinks() {
-        // Test that expand_paths follows symlinks to files.
+        // Tests that symlinks to files are followed and included.
         use std::os::unix::fs::symlink;
+
+        // Create temporary directory and target file.
         let dir = tempdir().unwrap();
         let target_file = dir.path().join("target.nes");
         fs::write(&target_file, TEST_NES_HEADER).unwrap();
         let symlink_file = dir.path().join("link.nes");
         symlink(&target_file, &symlink_file).unwrap();
         let paths = vec![symlink_file.to_str().unwrap().to_string()];
+
+        // Expand paths non-recursively and ensure that symlink is included.
         let expanded = expand_paths(&paths, false);
         assert_eq!(expanded.len(), 1);
         assert_eq!(expanded[0], symlink_file.to_str().unwrap());
@@ -439,74 +497,84 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn test_expand_paths_symlink_to_directory() {
-        // Test that expand_paths follows symlinks to directories when recursive.
+        // Tests that symlinks to directories are followed recursively.
         use std::os::unix::fs::symlink;
+
+        // Create temporary directory and target directory with file.
         let dir = tempdir().unwrap();
         let target_dir = dir.path().join("target");
         fs::create_dir(&target_dir).unwrap();
         let file_in_target = target_dir.join("file.nes");
         fs::write(&file_in_target, TEST_NES_HEADER).unwrap();
+
+        // Create symlink to the temporary directory.
         let symlink_dir = dir.path().join("link");
         symlink(&target_dir, &symlink_dir).unwrap();
+
+        // Run expand_paths on the symlink pointing at our tempdir.
         let paths = vec![symlink_dir.to_str().unwrap().to_string()];
         let expanded = expand_paths(&paths, true);
         assert_eq!(expanded.len(), 1);
-        // The expanded path should be through the symlink
+
+        // The expanded path should be through the symlink.
         assert!(expanded[0].contains("link"));
     }
 
     #[test]
     #[cfg(unix)]
     fn test_expand_paths_unreadable_dir() {
-        // Test that unreadable directories are handled gracefully with a warning.
+        // Tests graceful handling of unreadable directories with warnings.
         use std::os::unix::fs::PermissionsExt;
+
+        // Create temporary directory and unreadable subdirectory.
         let root = tempdir().unwrap();
         let unreadable_dir = root.path().join("unreadable");
         fs::create_dir(&unreadable_dir).unwrap();
         let file_in_unreadable = unreadable_dir.join("file.nes");
         fs::write(&file_in_unreadable, TEST_NES_HEADER).unwrap();
 
-        // Remove read permissions
+        // Remove read permissions.
         let mut perms = fs::metadata(&unreadable_dir).unwrap().permissions();
         perms.set_mode(0o000);
         fs::set_permissions(&unreadable_dir, perms).unwrap();
 
         let paths = vec![root.path().to_str().unwrap().to_string()];
+        // Expand paths recursively.
         let expanded = expand_paths(&paths, true);
 
-        // Restore permissions for cleanup
+        // Restore permissions for cleanup.
         let mut perms = fs::metadata(&unreadable_dir).unwrap().permissions();
         perms.set_mode(0o755);
         fs::set_permissions(&unreadable_dir, perms).unwrap();
 
-        // Should not include files from unreadable directory
+        // Should not include files from unreadable directory.
         assert!(expanded.is_empty());
     }
 
     #[test]
     #[cfg(unix)]
     fn test_expand_paths_circular_symlink() {
-        // Test that circular symbolic links are handled gracefully without stack overflow.
+        // Tests handling of circular symbolic links without infinite loops.
         use std::os::unix::fs::symlink;
         let root = tempdir().unwrap();
 
-        // Create a file in the root directory
+        // Create a file in the root directory.
         let file_in_root = root.path().join("file.nes");
         fs::write(&file_in_root, TEST_NES_HEADER).unwrap();
 
-        // Create a subdirectory
+        // Create a subdirectory.
         let subdir = root.path().join("subdir");
         fs::create_dir(&subdir).unwrap();
 
-        // Create a symlink in the subdirectory that points back to the root
+        // Create a symlink in the subdirectory that points back to the root.
         let circular_link = subdir.join("circular");
         symlink(root.path(), &circular_link).unwrap();
 
         let paths = vec![root.path().to_str().unwrap().to_string()];
-        // This should complete without stack overflow or infinite loop
+        // This should complete without stack overflow or infinite loop.
         let expanded = expand_paths(&paths, true);
 
-        // Verify that file.nes was found
+        // Verify that file.nes was found.
         assert!(!expanded.is_empty());
         assert!(expanded.iter().any(|p| p.ends_with("file.nes")));
     }
