@@ -44,12 +44,12 @@ impl fmt::Display for Region {
             return write!(f, "Unknown");
         }
 
-        // Handle the composite constant WORLD for cleaner output
+        // Handle the composite constant WORLD for cleaner output.
         if self.bits() == Region::WORLD.bits() {
             return write!(f, "World");
         }
 
-        // Collect the string names using a match statement
+        // Collect the string names using a match statement.
         let regions: Vec<&str> = self
             .iter()
             .map(|flag| match flag {
@@ -65,7 +65,7 @@ impl fmt::Display for Region {
             .filter(|s| !s.is_empty())
             .collect();
 
-        // Join multiple regions with forward slash (e.g. "Japan/USA")
+        // Join multiple regions with forward slash (e.g. "Japan/USA".)
         write!(f, "{}", regions.join("/"))
     }
 }
@@ -164,6 +164,7 @@ mod tests {
 
     #[test]
     fn test_infer_region_from_filename_japan() {
+        // Checks that Japanese region is correctly inferred from filename.
         assert_eq!(infer_region_from_filename("game (J).zip"), Region::JAPAN);
         assert_eq!(infer_region_from_filename("game [J].zip"), Region::JAPAN);
         assert_eq!(
@@ -178,6 +179,7 @@ mod tests {
 
     #[test]
     fn test_infer_region_from_filename_usa() {
+        // Checks that USA region is correctly inferred from filename.
         assert_eq!(infer_region_from_filename("game (U).zip"), Region::USA);
         assert_eq!(infer_region_from_filename("game [U].zip"), Region::USA);
         assert_eq!(infer_region_from_filename("game (USA).zip"), Region::USA);
@@ -190,6 +192,7 @@ mod tests {
 
     #[test]
     fn test_infer_region_from_filename_europe() {
+        // Checks that European region is correctly inferred from filename.
         assert_eq!(infer_region_from_filename("game (E).zip"), Region::EUROPE);
         assert_eq!(infer_region_from_filename("game [E].zip"), Region::EUROPE);
         assert_eq!(
@@ -205,6 +208,7 @@ mod tests {
 
     #[test]
     fn test_infer_region_from_filename_russia() {
+        // Checks that Russian region is correctly inferred from filename.
         assert_eq!(
             infer_region_from_filename("game (Russia).zip"),
             Region::RUSSIA
@@ -214,6 +218,7 @@ mod tests {
 
     #[test]
     fn test_infer_region_from_filename_world() {
+        // Checks that World region is correctly inferred from filename.
         assert_eq!(infer_region_from_filename("game (W).zip"), Region::WORLD);
         assert_eq!(
             infer_region_from_filename("game (World).zip"),
@@ -223,6 +228,7 @@ mod tests {
 
     #[test]
     fn test_infer_region_from_filename_none() {
+        // Checks that unknown region is inferred when filename has no region info.
         assert_eq!(
             infer_region_from_filename("game (unmarked).zip"),
             Region::UNKNOWN
@@ -235,49 +241,49 @@ mod tests {
 
     #[test]
     fn test_check_region_mismatch_no_mismatch_japan() {
-        // Filename indicates Japan, header is also Japan
+        // Filename indicates Japan, header is also Japan.
         assert!(!check_region_mismatch("game (J).zip", Region::JAPAN));
         assert!(!check_region_mismatch("game (Japan).zip", Region::JAPAN));
     }
 
     #[test]
     fn test_check_region_mismatch_no_mismatch_usa() {
-        // Filename indicates USA, header is also USA
+        // Filename indicates USA, header is also USA.
         assert!(!check_region_mismatch("game (U).zip", Region::USA));
         assert!(!check_region_mismatch("game (USA).zip", Region::USA));
     }
 
     #[test]
     fn test_check_region_mismatch_no_mismatch_europe() {
-        // Filename indicates Europe, header is also Europe
+        // Filename indicates Europe, header is also Europe.
         assert!(!check_region_mismatch("game (E).zip", Region::EUROPE));
         assert!(!check_region_mismatch("game (Europe).zip", Region::EUROPE));
     }
 
     #[test]
     fn test_check_region_mismatch_mismatch_japan_usa() {
-        // Filename indicates Japan, header indicates USA
+        // Filename indicates Japan, header indicates USA.
         assert!(check_region_mismatch("game (J).zip", Region::USA));
         assert!(check_region_mismatch("game (Japan).zip", Region::USA));
     }
 
     #[test]
     fn test_check_region_mismatch_mismatch_usa_europe() {
-        // Filename indicates USA, header indicates Europe
+        // Filename indicates USA, header indicates Europe.
         assert!(check_region_mismatch("game (U).zip", Region::EUROPE));
         assert!(check_region_mismatch("game (USA).zip", Region::EUROPE));
     }
 
     #[test]
     fn test_check_region_mismatch_mismatch_europe_japan() {
-        // Filename indicates Europe, header indicates Japan
+        // Filename indicates Europe, header indicates Japan.
         assert!(check_region_mismatch("game (E).zip", Region::JAPAN));
         assert!(check_region_mismatch("game (Europe).zip", Region::JAPAN));
     }
 
     #[test]
     fn test_check_region_mismatch_filename_has_region_header_unknown() {
-        // Filename indicates a region, but header is unknown/unnormalized
+        // Filename indicates a region, but header is unknown/unnormalized.
         assert!(!check_region_mismatch("game (J).zip", Region::UNKNOWN));
         assert!(!check_region_mismatch("game (U).zip", Region::UNKNOWN));
         assert!(!check_region_mismatch("game (E).zip", Region::UNKNOWN));
@@ -285,7 +291,7 @@ mod tests {
 
     #[test]
     fn test_check_region_mismatch_filename_unknown_header_has_region() {
-        // Filename is generic, header indicates a region
+        // Filename is generic, header indicates a region.
         assert!(!check_region_mismatch("game.zip", Region::JAPAN));
         assert!(!check_region_mismatch("another game.zip", Region::USA));
         assert!(!check_region_mismatch("game_title", Region::EUROPE));
@@ -293,7 +299,7 @@ mod tests {
 
     #[test]
     fn test_check_region_mismatch_both_unknown() {
-        // Neither filename nor header can be normalized to a region
+        // Neither filename nor header can be normalized to a region.
         assert!(!check_region_mismatch("game.zip", Region::UNKNOWN));
         assert!(!check_region_mismatch("another game.zip", Region::UNKNOWN));
         assert!(!check_region_mismatch("game_title", Region::UNKNOWN));
@@ -301,7 +307,7 @@ mod tests {
 
     #[test]
     fn test_check_region_mismatch_case_insensitivity_filename() {
-        // Test case insensitivity for filename inference
+        // Test case insensitivity for filename inference.
         assert!(!check_region_mismatch("game (JapAn).zip", Region::JAPAN));
         assert!(!check_region_mismatch("game (uSa).zip", Region::USA));
         assert!(!check_region_mismatch("game (EuRoPe).zip", Region::EUROPE));
@@ -309,35 +315,38 @@ mod tests {
 
     #[test]
     fn test_overlap_logic() {
-        // NES Example: Header says "NTSC", Filename says "(U)"
-        let filename_region = infer_region_from_filename("Contra (U).nes"); // USA
+        // NES Example: Header says "NTSC", Filename says "(U)."
+        // USA region is inferred from the filename.
+        let filename_region = infer_region_from_filename("Contra (U).nes");
         let header_region = Region::USA | Region::JAPAN;
 
-        // They should intersect (match), so mismatch is false
+        // They should intersect (match), so mismatch is false.
         assert!(filename_region.intersects(header_region));
         assert!(!check_region_mismatch("Contra (U).nes", Region::USA));
     }
 
     #[test]
     fn test_strict_mismatch() {
-        // Filename says (E), Header says NTSC (USA|Japan)
-        let filename_region = infer_region_from_filename("Contra (E).nes"); // EUROPE
+        // Filename says (E), Header says NTSC (USA|Japan.)
+        // Europe region is inferred from the filename.
+        let filename_region = infer_region_from_filename("Contra (E).nes");
         let header_region = Region::USA | Region::JAPAN;
 
-        // No intersection, so mismatch is true
+        // No intersection, so mismatch is true.
         assert!(!filename_region.intersects(header_region));
         assert!(check_region_mismatch("Contra (E).nes", Region::USA));
     }
 
     #[test]
     fn test_world_rom() {
-        // Filename says (W), Header says USA
-        // (W) implies USA | JAPAN | EUROPE
+        // Filename says (W), Header says USA.
+        // (W) implies USA | JAPAN | EUROPE.
         assert!(!check_region_mismatch("Game (W).bin", Region::USA));
     }
 
     #[test]
     fn test_multiple_region_filename_display() {
+        // Checks that multiple regions in filename are displayed as a joined string.
         let filename = "Super Game (U) (J).nes";
         let region = infer_region_from_filename(filename).to_string();
         assert_eq!(region, "Japan/USA")
@@ -345,6 +354,7 @@ mod tests {
 
     #[test]
     fn test_region_display_all() {
+        // Verifies string conversion for all region variants and combinations.
         assert_eq!(Region::JAPAN.to_string(), "Japan");
         assert_eq!(Region::USA.to_string(), "USA");
         assert_eq!(Region::EUROPE.to_string(), "Europe");
